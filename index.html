@@ -116,7 +116,22 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
 // Inyectar el código del bookmarklet con la URL correcta de la app
 (function(){
   var appUrl = location.href.split('?')[0];  // URL actual de la app
-  var bk = "(async function(){if(!location.href.startsWith('blob:')){alert('Abre este favorito desde la pesta\\u00f1a de la receta PDF en Eloisa APS.');return;}let r=await fetch(location.href);let buf=await r.arrayBuffer();let b=new Uint8Array(buf);let s='';for(let i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);let b64=btoa(s);let n=document.title||'receta';localStorage.setItem('aps_pdf_b64',b64);localStorage.setItem('aps_pdf_nombre',n+'.pdf');window.open('APP_URL','_blank');})();".replace('APP_URL', appUrl);
+  var bk = [
+    "(async function(){",
+    "if(!location.href.startsWith('blob:')){alert('Abre desde la pestaña de la receta en Eloisa APS.');return;}",
+    "try{",
+    "let r=await fetch(location.href);",
+    "let buf=await r.arrayBuffer();",
+    "let b=new Uint8Array(buf);",
+    "let s='';for(let i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);",
+    "let b64=btoa(s);",
+    "localStorage.setItem('aps_pdf_b64',b64);",
+    "localStorage.setItem('aps_pdf_nombre',(document.title||'receta')+'.pdf');",
+    "let w=window.open('APP_URL#aps','_blank');",
+    "if(!w)alert('Permite ventanas emergentes para este sitio.');",
+    "}catch(e){alert('Error al leer el PDF: '+e.message);}",
+    "})();"
+  ].join('').replace('APP_URL', appUrl);
   var ta = document.getElementById('bkCode');
   if(ta) ta.value = 'javascript:' + bk;
 })();
@@ -136,32 +151,31 @@ function copyBk(){
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// ── Auto-cargar PDF desde bookmarklet (via localStorage) ──────
-(function(){
+// ── Auto-cargar PDF desde bookmarklet (via localStorage + hash trigger) ──
+function cargarDesdeFavorito(){
   var b64=localStorage.getItem('aps_pdf_b64');
   var nombre=localStorage.getItem('aps_pdf_nombre')||'receta.pdf';
   if(!b64)return;
   localStorage.removeItem('aps_pdf_b64');
   localStorage.removeItem('aps_pdf_nombre');
+  history.replaceState(null,'',location.pathname); // limpiar el hash
   try{
     var bin=atob(b64);
     var arr=new Uint8Array(bin.length);
     for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
     var file=new File([arr],nombre,{type:'application/pdf'});
-    // Esperar a que todo esté listo: DOM + pdfjsLib worker + funciones definidas
-    function intentar(intentos){
-      if(typeof setFile==='function' && typeof generar==='function' && typeof pdfjsLib!=='undefined'){
-        setFile(file);
-        setTimeout(function(){ generar(); }, 150);
-      } else if(intentos>0){
-        setTimeout(function(){ intentar(intentos-1); }, 200);
-      } else {
-        console.error('Timeout: app no lista para cargar PDF automáticamente');
-      }
-    }
-    window.addEventListener('load', function(){ intentar(20); });
-  }catch(e){console.error('Error cargando PDF desde bookmarklet:',e);}
-})();
+    setFile(file);
+    setTimeout(function(){ generar(); },150);
+  }catch(e){console.error('Error cargando PDF:',e);}
+}
+// Escuchar el hash #aps que pone el bookmarklet
+window.addEventListener('hashchange',function(){
+  if(location.hash==='#aps') cargarDesdeFavorito();
+});
+// También intentar al cargar si el hash ya está (pestaña nueva)
+window.addEventListener('load',function(){
+  if(location.hash==='#aps') cargarDesdeFavorito();
+});
 
 var selFile=null, genHTML=null;
 var dz=document.getElementById('dropZone'),fi=document.getElementById('fi'),
