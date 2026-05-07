@@ -143,18 +143,23 @@ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/p
   if(!b64)return;
   localStorage.removeItem('aps_pdf_b64');
   localStorage.removeItem('aps_pdf_nombre');
-  // Convertir base64 a File
   try{
     var bin=atob(b64);
     var arr=new Uint8Array(bin.length);
     for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
     var file=new File([arr],nombre,{type:'application/pdf'});
-    // Mostrar aviso y procesar automáticamente
-    document.addEventListener('DOMContentLoaded',function(){
-      setFile(file);
-      // Pequeño delay para que el DOM esté listo
-      setTimeout(function(){ generar(); }, 300);
-    });
+    // Esperar a que todo esté listo: DOM + pdfjsLib worker + funciones definidas
+    function intentar(intentos){
+      if(typeof setFile==='function' && typeof generar==='function' && typeof pdfjsLib!=='undefined'){
+        setFile(file);
+        setTimeout(function(){ generar(); }, 150);
+      } else if(intentos>0){
+        setTimeout(function(){ intentar(intentos-1); }, 200);
+      } else {
+        console.error('Timeout: app no lista para cargar PDF automáticamente');
+      }
+    }
+    window.addEventListener('load', function(){ intentar(20); });
   }catch(e){console.error('Error cargando PDF desde bookmarklet:',e);}
 })();
 
