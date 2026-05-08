@@ -119,13 +119,12 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
   var bk = [
     "(function(){",
     "if(!location.href.startsWith('blob:')){alert('Abre este favorito desde la pesta\u00f1a de la receta PDF en Eloisa APS.');return;}",
-    "try{",
     "var x=new XMLHttpRequest();",
-    "x.open('GET',location.href,false);",
+    "x.open('GET',location.href,true);",
     "x.responseType='arraybuffer';",
-    "x.send();",
-    "var b=new Uint8Array(x.response);",
-    "var s='';",
+    "x.onload=function(){",
+    "try{",
+    "var b=new Uint8Array(x.response),s='';",
     "for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);",
     "var b64=btoa(s);",
     "var nombre=(document.title||'receta')+'.pdf';",
@@ -133,11 +132,11 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
     "if(!w){alert('Permite ventanas emergentes para este sitio.');return;}",
     "var ok=false;",
     "window.addEventListener('message',function(e){if(e.data&&e.data.type==='APS_ACK')ok=true;});",
-    "var n=0,iv=setInterval(function(){",
-    "if(ok||n>20){clearInterval(iv);return;}",
-    "w.postMessage({type:'APS_PDF',b64:b64,nombre:nombre},'*');",
-    "n++;},600);",
+    "var n=0,iv=setInterval(function(){if(ok||n>20){clearInterval(iv);return;}w.postMessage({type:'APS_PDF',b64:b64,nombre:nombre},'*');n++;},600);",
     "}catch(e){alert('Error: '+e.message);}",
+    "};",
+    "x.onerror=function(){alert('No se pudo leer el PDF. Intenta descargarlo y subirlo manualmente.');};",
+    "x.send();",
     "})();"
   ].join('').replace(/APP_URL/g, appUrl);
   var ta = document.getElementById('bkCode');
