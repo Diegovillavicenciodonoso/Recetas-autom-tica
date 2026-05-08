@@ -353,23 +353,27 @@ function parsearReceta(lines){
   }
 
   var meds=[];
+  // Encontrar la posición de "Rp." — medicamentos solo vienen después
+  var rpIdx=textLines.findIndex(function(l){return/^Rp\.?$/i.test(l.trim());});
   // Buscar líneas que comienzan con "- " seguido de nombre de medicamento
   for(var i=0;i<textLines.length;i++){
     var l=textLines[i];
     if(!/^-\s+[A-ZÁÉÍÓÚÑa-z]/.test(l))continue;
     if(/consulta para/i.test(l))continue;
+    // Ignorar líneas de diagnóstico (antes de Rp.)
+    if(rpIdx!==-1 && i<=rpIdx)continue;
 
     // Extraer nombre: todo antes del primer número de dosis o ":"
     var nombre_med='',dosis_med='',frecH=24,cantToma=1;
 
     // Patrón: "- NOMBRE X mg/Mg [Comprimidos...] : N Comprimido cada Y horas"
-    var m=l.match(/^-\s+([\wÁÉÍÓÚÑáéíóúñ\s\-\.]+?)\s+(\d+(?:[,\.]\d+)?)\s*(mg|Mg|MG|mcg|g|UI|u)\b/);
+    var m=l.match(/^-\s+([\wÁÉÍÓÚÑáéíóúñ\s\-\.]+?)\s+(\d+(?:[,\.]\d+)?)\s*(mg|Mg|MG|mcg|Mcg|MCG|g|UI|u)(?!\/)\b/);
     if(m){
-      nombre_med=m[1].replace(/\b(Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Recubiertos?|Recubiertas?|Recubierta?|Entericos?|Entéricos?|Gastrorresistentes?|Granulos?|Gránulos?|Pellets?|Retard|Prolongada?|Liberaci[oó]n\s+Prolongada?|Liberaci[oó]n\s+Controlada?|Liberaci[oó]n\s+Lenta?|L\.P\.|L\.C\.|L\.R\.|XR|SR|ER|CR|MR|LA|OD|Potasico|Pot[aá]sico|S[oó]dico|Sodico|Magn[eé]sico|Calcico|C[aá]lcico|Masticable|Sublingual|Efervescente|Dispersable|Soluble|Bucal|Oral|Film|Filmado|Dura|Blanda|Monosodica|Disodica|S[oó]dica|Clorhidrato|Cloruro|Sulfato|Fosfato|Nitrato|Malato|Tartrato|Fumarato|Maleato|Besilato|Tosilato|Mesilato|HCl|Base)\b/gi,'').trim();
+      nombre_med=m[1].replace(/\b(Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Recubiertos?|Recubiertas?|Recubierta?|Entericos?|Entéricos?|Gastrorresistentes?|Granulos?|Gránulos?|Pellets?|Retard|Prolongada?|Liberaci[oó]n\s+Prolongada?|Liberaci[oó]n\s+Controlada?|Liberaci[oó]n\s+Lenta?|L\.P\.|L\.C\.|L\.R\.|XR|SR|ER|CR|MR|LA|OD|Potasico|Pot[aá]sico|S[oó]dico|Sodico|Magn[eé]sico|Calcico|C[aá]lcico|Masticable|Sublingual|Efervescente|Dispersable|Soluble|Bucal|Oral|Film|Filmado|Dura|Blanda|Monosodica|Disodica|S[oó]dica|Clorhidrato|Cloruro|Sulfato|Fosfato|Nitrato|Malato|Tartrato|Fumarato|Maleato|Besilato|Tosilato|Mesilato|HCl|Base|Para|Dosis|Lf|Con)\b/gi,'').replace(/(\([^)]*\)|\d+\/\d+|\d+\/[A-Za-z]+|\/[A-Za-z]*|\d+\s*[Mm][Cc][Gg])/g,'').replace(/\s+/g,' ').trim();
       dosis_med=m[2].replace(',','.')+' '+m[3].toLowerCase();
     } else {
       var ci=l.indexOf(':');
-      if(ci>1) nombre_med=l.substring(2,ci).replace(/\b(Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Recubiertos?|Recubiertas?|Entericos?|Ent[eé]ricos?|Gastrorresistentes?|Gr[aá]nulos?|Pellets?|Retard|Prolongada?|Liberaci[oó]n\s+Prolongada?|Liberaci[oó]n\s+Controlada?|XR|SR|ER|CR|MR|LA|Pot[aá]sico|Potasico|S[oó]dico|Sodico|Magn[eé]sico|C[aá]lcico|Calcico|Masticable|Sublingual|Efervescente|Dispersable|Soluble|Film|Filmado|Inhalador|Inhalaci[oó]n|Clorhidrato|Cloruro|Sulfato|Fosfato|Malato|Tartrato|Fumarato|Maleato|Besilato|HCl|\d+\s*mg|\d+\s*Mg)\b/gi,'').replace(/\s+/g,' ').trim();
+      if(ci>1) nombre_med=l.substring(2,ci).replace(/\b(Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Recubiertos?|Recubiertas?|Entericos?|Ent[eé]ricos?|Gastrorresistentes?|Gr[aá]nulos?|Pellets?|Retard|Prolongada?|Liberaci[oó]n\s+Prolongada?|Liberaci[oó]n\s+Controlada?|XR|SR|ER|CR|MR|LA|Pot[aá]sico|Potasico|S[oó]dico|Sodico|Magn[eé]sico|C[aá]lcico|Calcico|Masticable|Sublingual|Efervescente|Dispersable|Soluble|Film|Filmado|Inhalador|Inhalaci[oó]n|Clorhidrato|Cloruro|Sulfato|Fosfato|Malato|Tartrato|Fumarato|Maleato|Besilato|HCl|\d+\s*mg|\d+\s*Mg)\b/gi,'').replace(/\s+/g,' ').replace(/(\(\d+[^)]*\)|\d+\/\d+)/g,'').trim();
       else nombre_med=l.substring(2).split(' ').slice(0,3).join(' ');
     }
     if(!nombre_med)continue;
@@ -480,7 +484,7 @@ function dosisHTML(count, tipo) {
   // INHALADOR (puff)
   if (tipo === 'inhalador') {
     var puffs = '';
-    for (var i = 0; i < Math.min(Math.round(count), 6); i++) puffs += '🫁';
+    for (var i = 0; i < Math.min(Math.round(count), 6); i++) puffs += '💨';
     return '<div style="font-size:22px;line-height:1.3">' + puffs + '</div>'
       + '<div style="font-size:12px;font-weight:bold;margin-top:2px">'
       + count + ' puff' + (count > 1 ? 's' : '') + '</div>';
@@ -570,7 +574,7 @@ function buildHTML(data) {
     'function dosisHTML(count,tipo){',
     '  if(count===0)return"";',
     '  if(tipo==="gotas"){var g="";for(var i=0;i<Math.min(Math.round(count),10);i++)g+="💧";return\'<div style="font-size:22px;line-height:1.3">\'+g+\'</div><div style="font-size:12px;font-weight:bold;margin-top:2px">\'+count+\' gota\'+(count!==1?"s":"")+\'</div>\';}',
-    '  if(tipo==="inhalador"){var p="";for(var i=0;i<Math.min(Math.round(count),6);i++)p+="🫁";return\'<div style="font-size:22px;line-height:1.3">\'+p+\'</div><div style="font-size:12px;font-weight:bold;margin-top:2px">\'+count+\' puff\'+(count>1?"s":"")+\'</div>\';}',
+    '  if(tipo==="inhalador"){var p="";for(var i=0;i<Math.min(Math.round(count),6);i++)p+="💨";return\'<div style="font-size:22px;line-height:1.3">\'+p+\'</div><div style="font-size:12px;font-weight:bold;margin-top:2px">\'+count+\' puff\'+(count>1?"s":"")+\'</div>\';}',
     '  var whole=Math.floor(count),frac=Math.round((count-whole)*4)/4,pills=[];',
     '  for(var i=0;i<whole;i++)pills.push(1);if(frac>0)pills.push(frac);',
     '  var PW=34,PH=18,GAP=5,ROW=3,rows=Math.ceil(pills.length/ROW);',
