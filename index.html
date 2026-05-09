@@ -689,34 +689,33 @@ function buildHTML(data) {
         + '</div></td>';
       return '<tr data-idx="'+i+'">' + nombreTd + dosisTd + sosTd + '</tr>';
     }
-    // INSULINA: mostrar jeringa con dosis AM/PM
+    // INSULINA: mostrar jeringa en casilla desayuno (AM) y cena (PM)
     if(m.tipo==='insulina'){
       var io=m.insulinaObs||{am:0,pm:0};
-      var colSpan=horas.length;
-      var insulinaTd='<td colspan="'+colSpan+'" style="border:1.5px solid #888;padding:9px 10px;background:#f8f8f8;vertical-align:middle;text-align:center">'
-        +'<div style="display:inline-flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:center">';
-      if(io.am>0){
-        insulinaTd+='<div style="text-align:center">'
+      function insulinaCell(ui, empty){
+        if(empty||ui===0) return '<td style="border:1.5px solid #888;padding:6px 4px;background:#fff;text-align:center;vertical-align:middle"><div class="pill-display"></div></td>';
+        return '<td style="border:1.5px solid #888;padding:6px 4px;background:#e0e0e0;text-align:center;vertical-align:middle">'
+          +'<div class="pill-display">'
           +'<div style="font-size:26px">💉</div>'
-          +'<div style="font-weight:bold;font-size:15px">'+io.am+' UI</div>'
-          +'<div style="font-size:11px;color:#555">Mañana</div>'
-          +'</div>';
+          +'<div style="font-size:12px;font-weight:bold;margin-top:2px">'+ui+' UI</div>'
+          +'</div>'
+          +'<select style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:108px">'
+          +'<option>'+ui+' UI</option>'
+          +'<option>0 UI</option>'
+          +'<option>2 UI</option><option>4 UI</option><option>6 UI</option><option>8 UI</option>'
+          +'<option>10 UI</option><option>12 UI</option><option>14 UI</option><option>16 UI</option>'
+          +'<option>18 UI</option><option>20 UI</option><option>22 UI</option><option>24 UI</option>'
+          +'<option>26 UI</option><option>28 UI</option><option>30 UI</option>'
+          +'</select>'
+          +'</td>';
       }
-      if(io.am>0 && io.pm>0){
-        insulinaTd+='<div style="font-size:20px;color:#888">—</div>';
-      }
-      if(io.pm>0){
-        insulinaTd+='<div style="text-align:center">'
-          +'<div style="font-size:26px">💉</div>'
-          +'<div style="font-weight:bold;font-size:15px">'+io.pm+' UI</div>'
-          +'<div style="font-size:11px;color:#555">Noche</div>'
-          +'</div>';
-      }
-      if(!io.am && !io.pm){
-        insulinaTd+='<div style="font-size:26px">💉</div><div style="font-size:13px;font-weight:bold">Según indicación médica</div>';
-      }
-      insulinaTd+='</div></td>';
-      return '<tr data-idx="'+i+'">' + nombreTd + dosisTd + insulinaTd + '</tr>';
+      var insulinaCells='';
+      horas.forEach(function(hr){
+        if(hr.k==='des') insulinaCells+=insulinaCell(io.am, false);
+        else if(hr.k==='cen') insulinaCells+=insulinaCell(io.pm, false);
+        else insulinaCells+='<td style="border:1.5px solid #888;padding:6px 4px;background:#fff;text-align:center;vertical-align:middle"><div style="color:#ccc">—</div></td>';
+      });
+      return '<tr data-idx="'+i+'">' + nombreTd + dosisTd + insulinaCells + '</tr>';
     }
     return '<tr data-idx="'+i+'">' + nombreTd + dosisTd
       + horas.map(function(hr){return makeCell(hh[hr.k]||0, m.tipo);}).join('')
