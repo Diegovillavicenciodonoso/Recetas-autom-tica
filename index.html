@@ -119,24 +119,25 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
   var bk = [
     "(function(){",
     "if(!location.href.startsWith('blob:')){alert('Abre este favorito desde la pesta\u00f1a de la receta PDF en Eloisa APS.');return;}",
-    "var x=new XMLHttpRequest();",
-    "x.open('GET',location.href,true);",
-    "x.responseType='arraybuffer';",
-    "x.onload=function(){",
-    "try{",
-    "var b=new Uint8Array(x.response),s='';",
-    "for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);",
-    "var b64=btoa(s);",
-    "var nombre=(document.title||'receta')+'.pdf';",
-    "var w=window.open('APP_URL','_blank');",
-    "if(!w){alert('Permite ventanas emergentes para este sitio.');return;}",
-    "var ok=false;",
-    "window.addEventListener('message',function(e){if(e.data&&e.data.type==='APS_ACK')ok=true;});",
-    "var n=0,iv=setInterval(function(){if(ok||n>20){clearInterval(iv);return;}w.postMessage({type:'APS_PDF',b64:b64,nombre:nombre},'*');n++;},600);",
-    "}catch(e){alert('Error: '+e.message);}",
-    "};",
-    "x.onerror=function(){alert('No se pudo leer el PDF. Intenta descargarlo y subirlo manualmente.');};",
-    "x.send();",
+    "var url=location.href,nombre=(document.title||'receta')+'.pdf';",
+    "function enviar(b64){",
+    "  var w=window.open('APP_URL','_blank');",
+    "  if(!w){alert('Permite ventanas emergentes para este sitio.');return;}",
+    "  var ok=false;",
+    "  window.addEventListener('message',function(e){if(e.data&&e.data.type==='APS_ACK')ok=true;});",
+    "  var n=0,iv=setInterval(function(){if(ok||n>30){clearInterval(iv);return;}w.postMessage({type:'APS_PDF',b64:b64,nombre:nombre},'*');n++;},500);",
+    "}",
+    "function conXHR(){",
+    "  var x=new XMLHttpRequest();",
+    "  x.open('GET',url,true);",
+    "  x.responseType='arraybuffer';",
+    "  x.onload=function(){var b=new Uint8Array(x.response),s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);enviar(btoa(s));};",
+    "  x.onerror=function(){alert('No se pudo leer el PDF. Descárgalo y súbelo manualmente en la app.');};",
+    "  x.send();",
+    "}",
+    "fetch(url,{cache:'no-store'}).then(function(r){return r.arrayBuffer();}).then(function(buf){",
+    "  var b=new Uint8Array(buf),s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);enviar(btoa(s));",
+    "}).catch(function(){conXHR();});",
     "})();"
   ].join('').replace(/APP_URL/g, appUrl);
   var ta = document.getElementById('bkCode');
@@ -252,7 +253,10 @@ function linesToText(lines){
 // ── Parser robusto para Eloisa APS ────────────────────────────
 function parsearReceta(lines){
   var warnings=[];
-  var nombre='',nombreSocial='',rut='',edad='',fecha='',medico='';
+  var nombre='',nombreSocial='',rut='',edad='',fecha='',fechaCreacion='',medico='';
+
+  // Construir array de líneas de texto plano (usado en múltiples lugares)
+  var textLines=lines.map(function(l){return l.words.map(function(w){return w.text;}).join(' ');});
 
   // Buscar en las líneas con conocimiento de posiciones X
   lines.forEach(function(line){
@@ -296,12 +300,25 @@ function parsearReceta(lines){
       if(words[i].text==='Impresión:' && !fecha){
         if(i+1<words.length && /\d{2}-\d{2}-\d{4}/.test(words[i+1].text)) fecha=words[i+1].text;
       }
+      // FECHA CREACIÓN — detectar por palabra
+      if((words[i].text==='Creación:'||words[i].text==='Creacion:') && !fechaCreacion){
+        if(i+1<words.length && /^\d{2}-\d{2}-\d{4}$/.test(words[i+1].text)){
+          fechaCreacion=words[i+1].text;
+        }
+      }
     }
   });
 
+  // Fallback: buscar fechaCreacion en líneas completas si no se encontró aún
+  if(!fechaCreacion){
+    textLines.forEach(function(l){
+      var m=l.match(/Creaci[oó]n:\s*(\d{2}-\d{2}-\d{4})/i);
+      if(m && !fechaCreacion) fechaCreacion=m[1];
+    });
+  }
+
   // Médico: líneas antes de "Rut:" que tengan 2+ palabras con mayúsculas
   // En Eloisa: nombre médico en 2 líneas, luego "Rut: XXXXXXX"
-  var textLines=lines.map(function(l){return l.words.map(function(w){return w.text;}).join(' ');});
   for(var i=0;i<textLines.length;i++){
     if(/^Rut:\s*\d+/.test(textLines[i])||(/^Rut:$/.test(textLines[i])&&i+1<textLines.length&&/^\d+$/.test(textLines[i+1]))){
       // La línea anterior es el médico (puede ser 1 o 2 líneas)
@@ -387,22 +404,40 @@ function parsearReceta(lines){
     // Patrón: "- NOMBRE X mg/Mg [Comprimidos...] : N Comprimido cada Y horas"
     var m=l.match(/^-\s+([\wÁÉÍÓÚÑáéíóúñ\s\-\.]+?)\s+(\d+(?:[,\.]\d+)?)\s*(mg|Mg|MG|mcg|Mcg|MCG|g|UI|u)(?!\/)\b/);
     if(m){
+      // Cut name at first form/code word before cleaning
+      var _stopWords=/\b(Aerosol|Inhalacion|Inhalaci[oó]n|Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Granulos?|Gr[aá]nulos?|Lf|Lp|Lc|Sr|Xr|Er|Cr|Mf)\b/i;
+      var _sw=m[1].search(_stopWords);
+      if(_sw>0) m[1]=m[1].substring(0,_sw).trim();
       nombre_med=m[1].replace(/\b(Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Recubiertos?|Recubiertas?|Recubierta?|Entericos?|Entéricos?|Gastrorresistentes?|Granulos?|Gránulos?|Pellets?|Retard|Prolongada?|Liberaci[oó]n\s+Prolongada?|Liberaci[oó]n\s+Controlada?|Liberaci[oó]n\s+Lenta?|L\.P\.|L\.C\.|L\.R\.|XR|SR|ER|CR|MR|LA|OD|Potasico|Pot[aá]sico|S[oó]dico|Sodico|Magn[eé]sico|Calcico|C[aá]lcico|Masticable|Sublingual|Efervescente|Dispersable|Soluble|Bucal|Oral|Film|Filmado|Dura|Blanda|Monosodica|Disodica|S[oó]dica|Clorhidrato|Cloruro|Sulfato|Fosfato|Nitrato|Malato|Tartrato|Fumarato|Maleato|Besilato|Tosilato|Mesilato|HCl|Base|Para|Dosis|Lf|Con)\b/gi,'').replace(/(\([^)]*\)|\d+\/\d+|\d+\/[A-Za-z]+|\/[A-Za-z]*|\d+\s*[Mm][Cc][Gg])/g,'').replace(/\s+/g,' ').trim();
       dosis_med=m[2].replace(',','.')+' '+m[3].toLowerCase();
     } else {
       var ci=l.indexOf(':');
-      if(ci>1) nombre_med=l.substring(2,ci).replace(/\b(Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Recubiertos?|Recubiertas?|Entericos?|Ent[eé]ricos?|Gastrorresistentes?|Gr[aá]nulos?|Pellets?|Retard|Prolongada?|Liberaci[oó]n\s+Prolongada?|Liberaci[oó]n\s+Controlada?|XR|SR|ER|CR|MR|LA|Pot[aá]sico|Potasico|S[oó]dico|Sodico|Magn[eé]sico|C[aá]lcico|Calcico|Masticable|Sublingual|Efervescente|Dispersable|Soluble|Film|Filmado|Inhalador|Inhalaci[oó]n|Clorhidrato|Cloruro|Sulfato|Fosfato|Malato|Tartrato|Fumarato|Maleato|Besilato|HCl|\d+\s*mg|\d+\s*Mg)\b/gi,'').replace(/\s+/g,' ').replace(/(\(\d+[^)]*\)|\d+\/\d+)/g,'').trim();
+      // For colon-split names, also truncate at first form word
+      var _rawName=ci>1?l.substring(2,ci):l.substring(2);
+      var _sw2=_rawName.search(/\b(Aerosol|Inhalacion|Inhalaci[oó]n|Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Granulos?|Gr[aá]nulos?|Lf|Lp|Lc|Sr|Xr|Er|Cr|Mf)\b/i);
+      if(_sw2>1) _rawName=_rawName.substring(0,_sw2).trim();
+      if(ci>1) nombre_med=_rawName.replace(/\b(Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Recubiertos?|Recubiertas?|Entericos?|Ent[eé]ricos?|Gastrorresistentes?|Gr[aá]nulos?|Pellets?|Retard|Prolongada?|Liberaci[oó]n\s+Prolongada?|Liberaci[oó]n\s+Controlada?|XR|SR|ER|CR|MR|LA|Pot[aá]sico|Potasico|S[oó]dico|Sodico|Magn[eé]sico|C[aá]lcico|Calcico|Masticable|Sublingual|Efervescente|Dispersable|Soluble|Film|Filmado|Inhalador|Inhalaci[oó]n|Clorhidrato|Cloruro|Sulfato|Fosfato|Malato|Tartrato|Fumarato|Maleato|Besilato|HCl|\d+\s*mg|\d+\s*Mg)\b/gi,'').replace(/\s+/g,' ').replace(/(\(\d+[^)]*\)|\d+\/\d+)/g,'').trim();
       else nombre_med=l.substring(2).split(' ').slice(0,3).join(' ');
     }
     if(!nombre_med)continue;
 
     // Cantidad por toma
-    var cmatch=l.match(/:\s*(\d+(?:\.\d+)?)\s+(?:Comprimido|C[aá]psula|Tableta|Inhalaci[oó]n|Puff|Gota|ml)/i);
+    var cmatch=l.match(/:\s*(\d+(?:\.\d+)?)\s+(?:Comprimido|C[aá]psula|Tableta|Inhalaci[oó]n|Puff|Dosis|Gota|ml)/i);
     if(cmatch) cantToma=parseFloat(cmatch[1]);
 
     // Frecuencia
     var fmatch=l.match(/cada\s+(\d+)\s+horas/i);
     if(fmatch) frecH=parseInt(fmatch[1]);
+
+    // MESES de duración
+    var mesesMatch=l.match(/por\s+(\d+)\s+mes/i);
+    var mesesMed=mesesMatch?parseInt(mesesMatch[1]):12;
+
+    // SOS: detectar si el medicamento es SOS/PRN/según necesidad
+    var esSOS = /\bSOS\b|\bPRN\b|\bseg[uú]n\s+necesidad\b|\bsi\s+dolor\b|\bsi\s+fiebre\b|\bsi\s+necesita\b/i.test(l);
+    // También buscar en la línea de obs siguiente
+    var nextLineForSOS = (i+1 < textLines.length) ? textLines[i+1] : '';
+    if(/\bSOS\b|\bPRN\b/i.test(nextLineForSOS)) esSOS = true;
 
     // OBS: buscar en línea siguiente
     var obsStr=null;
@@ -436,14 +471,14 @@ function parsearReceta(lines){
     }
 
     nombre_med=nombre_med.replace(/\s+/g,' ').toUpperCase();
-    if(!dosis_med) warnings.push(nombre_med+': revisa la dosis.');
+    if(!dosis_med) dosis_med='';
 
-    meds.push({nombre:nombre_med,dosis:dosis_med||'—',tipo:inferTipo(nombre_med),indica:inferIndica(nombre_med),obs:obs});
+    meds.push({nombre:nombre_med,dosis:dosis_med||'',tipo:inferTipo(nombre_med),indica:inferIndica(nombre_med),obs:obs,meses:mesesMed,sos:esSOS,cantToma:cantToma});
   }
 
   if(!meds.length) warnings.push('No se encontraron medicamentos. ¿Es una receta Eloisa APS?');
 
-  return{paciente:{nombre:nombre,nombreSocial:nombreSocial||nombre.split(' ')[0]||'Paciente',rut:rut,edad:edad,fecha:fecha,medico:medico},medicamentos:meds,warnings:warnings};
+  return{paciente:{nombre:nombre,nombreSocial:nombreSocial||nombre.split(' ')[0]||'Paciente',rut:rut,edad:edad,fecha:fecha,fechaCreacion:fechaCreacion||fecha,medico:medico},medicamentos:meds,warnings:warnings};
 }
 
 // ── Generar ───────────────────────────────────────────────────
@@ -547,6 +582,45 @@ function dosisHTML(count, tipo) {
     + '<div style="font-size:12px;font-weight:bold;margin-top:2px">' + lbl + '</div>';
 }
 
+function dosisSOSHTML(cant, tipo){
+  if(tipo==='gotas'){
+    var g='';for(var i=0;i<Math.min(Math.round(cant),10);i++)g+='💧';
+    return '<div style="font-size:22px">'+g+'</div><div style="font-size:12px;font-weight:bold">'+cant+' gota'+(cant!==1?'s':'')+'</div>';
+  }
+  if(tipo==='inhalador'){
+    var p='';for(var i=0;i<Math.min(Math.round(cant),6);i++)p+='💨';
+    return '<div style="font-size:22px">'+p+'</div><div style="font-size:12px;font-weight:bold">'+cant+' puff'+(cant>1?'s':'')+'</div>';
+  }
+  // pastillas SVG inline simple
+  var pills='';
+  for(var i=0;i<Math.min(Math.round(cant),6);i++) pills+='⬤ ';
+  return '<div style="font-size:22px;color:#555">'+pills.trim()+'</div><div style="font-size:12px;font-weight:bold">'+cant+' pastilla'+(cant!==1?'s':'')+'</div>';
+}
+
+function calcVencimiento(fechaStr, meds){
+  try{
+    if(!fechaStr) return 'No disponible';
+    var parts=fechaStr.split('-');
+    if(parts.length!==3) return 'No disponible';
+    var d=parseInt(parts[0]),mo=parseInt(parts[1])-1,y=parseInt(parts[2]);
+    if(isNaN(d)||isNaN(mo)||isNaN(y)) return 'No disponible';
+    var minMeses=24;
+    if(Array.isArray(meds)){
+      meds.forEach(function(m){
+        var mes=m&&m.meses?parseInt(m.meses):0;
+        if(mes>0 && mes<minMeses) minMeses=mes;
+      });
+    }
+    if(minMeses===24) minMeses=12;
+    var fecha=new Date(y,mo,d);
+    fecha.setMonth(fecha.getMonth()+minMeses);
+    var dd=String(fecha.getDate()).padStart(2,'0');
+    var yy=fecha.getFullYear();
+    var mn=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    return dd+' de '+mn[fecha.getMonth()]+' de '+yy;
+  }catch(e){ return 'No disponible'; }
+}
+
 function buildHTML(data) {
   var p = data.paciente || {}, meds = data.medicamentos || [];
   var tieneOnce = meds.some(function(m) { return parsObs(m.obs).tieneOnce; });
@@ -576,14 +650,25 @@ function buildHTML(data) {
     + horas.map(function(h){return'<th style="background:#111;color:#fff;padding:9px;font-size:13px;width:'+colW+'">'+h.l+'</th>';}).join('');
 
   var rows = meds.map(function(m, i) {
-    var h = parsObs(m.obs), bg = i % 2 === 0 ? '#f0f0f0' : '#fff';
-    return '<tr>'
-      + '<td style="border:1.5px solid #888;padding:9px 10px;background:' + bg + ';word-break:keep-all;vertical-align:middle">'
+    var hh = parsObs(m.obs), bg = i % 2 === 0 ? '#f0f0f0' : '#fff';
+    var nombreTd = '<td style="border:1.5px solid #888;padding:9px 10px;background:' + bg + ';word-break:keep-all;vertical-align:middle">'
       + '<div style="font-size:17px;font-weight:bold">' + m.nombre + '</div>'
       + (m.indica ? '<div style="font-size:11px;color:#444;font-style:italic;margin-top:2px">' + m.indica + '</div>' : '')
-      + '</td>'
-      + '<td style="border:1.5px solid #888;padding:9px 4px;text-align:center;background:' + bg + ';font-weight:bold;font-size:14px;vertical-align:middle">' + m.dosis + '</td>'
-      + horas.map(function(hr){return makeCell(h[hr.k]||0, m.tipo);}).join('')
+      + '</td>';
+    var dosisTd = '<td style="border:1.5px solid #888;padding:9px 4px;text-align:center;background:' + bg + ';font-weight:bold;font-size:14px;vertical-align:middle">' + m.dosis + '</td>';
+    if(m.sos){
+      var cant = m.cantToma || 1;
+      var sosDosis = dosisSOSHTML(cant, m.tipo);
+      var sosTd = '<td colspan="' + horas.length + '" style="border:1.5px solid #888;padding:9px 10px;background:#f5f5f0;vertical-align:middle;text-align:center">'
+        + '<div style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center">'
+        + sosDosis
+        + '<div style="background:#333;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:bold;letter-spacing:1px">SOS</div>'
+        + '<div style="font-size:12px;color:#555;font-style:italic">Solo si hay necesidad</div>'
+        + '</div></td>';
+      return '<tr>' + nombreTd + dosisTd + sosTd + '</tr>';
+    }
+    return '<tr>' + nombreTd + dosisTd
+      + horas.map(function(hr){return makeCell(hh[hr.k]||0, m.tipo);}).join('')
       + '</tr>';
   }).join('');
 
@@ -664,8 +749,12 @@ function updCell(sel,tipo){
     + '<div><div style="font-size:26px;font-weight:bold">MIS MEDICAMENTOS</div>\n'
     + '<div style="font-size:17px;color:#333;margin-top:3px">Hola, <strong>' + (p.nombreSocial||p.nombre||'Paciente') + '</strong></div>\n'
     + '<div style="font-size:12px;color:#555;margin-top:2px">' + (p.nombre||'') + ' | RUN: ' + (p.rut||'') + ' | ' + (p.edad||'') + '</div>\n'
-    + '<div style="font-size:11px;color:#777;margin-top:1px">Fecha: ' + (p.fecha||'') + ' | ' + (p.medico||'') + '</div></div></div>\n'
-    + '<div style="text-align:center;border-top:2px solid #555;border-bottom:2px solid #555;padding:5px 0;margin-bottom:12px;font-size:14px;font-weight:bold">Tome sus medicamentos todos los días a la misma hora</div>\n'
+    + '<div style="font-size:11px;color:#777;margin-top:1px">Fecha: ' + (p.fechaCreacion||p.fecha||'') + ' | ' + (p.medico||'') + '</div></div></div>\n'
+    + '<div style="background:#f5f5f0;border:1.5px solid #999;border-radius:6px;padding:8px 14px;margin-bottom:10px;font-size:13px;color:#333;line-height:1.6">'
+  + '<strong>&#9200; Vencimiento de receta: ' + calcVencimiento(p.fechaCreacion||p.fecha, meds) + '</strong><br>'
+  + 'Debe solicitar hora m&eacute;dica o acercarse a SOME para renovar su receta.'
+  + '</div>\n'
+  + '<div style="text-align:center;border-top:2px solid #555;border-bottom:2px solid #555;padding:5px 0;margin-bottom:12px;font-size:14px;font-weight:bold">Tome sus medicamentos todos los días a la misma hora</div>\n'
     + '<table><thead><tr>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table>\n'
     + '<div style="margin-top:12px;text-align:center;font-size:11px;color:#666;border-top:1px solid #ccc;padding-top:8px">Si tiene dudas, consulte a su médico o al personal de salud<br>Hospital de Fresia · S.S. del Reloncaví · Departamento de Salud</div>\n'
     + '<button class="no-print" onclick="window.print()" style="display:block;margin:12px auto;padding:9px 28px;font-size:15px;font-weight:bold;background:#1a3a2a;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Imprimir</button>\n'
