@@ -488,6 +488,16 @@ function parsearReceta(lines){
 
     // IGNORAR: jeringas, pastilleros, insumos que no son medicamentos
     if(/\b(JERINGA|AGUJA|LANCETA|PASTILLERO|ORGANIZADOR|TIRAS\s+REACTIVAS|GLUCOM[EÉ]TRO)\b/i.test(nombre_med)) continue;
+
+    // INSULINA: simplificar nombre a solo "INSULINA NPH", "INSULINA GLARGINA", etc.
+    if(inferTipo(nombre_med)==='insulina'){
+      var _subtipos=['NPH','GLARGINA','DETEMIR','ASPART','LISPRO','GLULISINA','REGULAR','CRISTALINA','BIFASICA','BIFÁSICA'];
+      var _subtipo='';
+      for(var _si=0;_si<_subtipos.length;_si++){
+        if(nombre_med.indexOf(_subtipos[_si])!==-1){ _subtipo=_subtipos[_si]; break; }
+      }
+      nombre_med = _subtipo ? 'INSULINA '+_subtipo : 'INSULINA';
+    }
     if(!dosis_med) dosis_med='';
 
     meds.push({nombre:nombre_med,dosis:dosis_med||'',tipo:inferTipo(nombre_med),indica:inferIndica(nombre_med),obs:obs,meses:mesesMed,sos:esSOS,cantToma:cantToma,insulinaObs:insulinaObs});
@@ -692,28 +702,26 @@ function buildHTML(data) {
     // INSULINA: mostrar jeringa en casilla desayuno (AM) y cena (PM)
     if(m.tipo==='insulina'){
       var io=m.insulinaObs||{am:0,pm:0};
-      function insulinaCell(ui, empty){
-        if(empty||ui===0) return '<td style="border:1.5px solid #888;padding:6px 4px;background:#fff;text-align:center;vertical-align:middle"><div class="pill-display"></div></td>';
-        return '<td style="border:1.5px solid #888;padding:6px 4px;background:#e0e0e0;text-align:center;vertical-align:middle">'
-          +'<div class="pill-display">'
-          +'<div style="font-size:26px">💉</div>'
-          +'<div style="font-size:12px;font-weight:bold;margin-top:2px">'+ui+' UI</div>'
-          +'</div>'
-          +'<select style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:108px">'
-          +'<option>'+ui+' UI</option>'
-          +'<option>0 UI</option>'
-          +'<option>2 UI</option><option>4 UI</option><option>6 UI</option><option>8 UI</option>'
-          +'<option>10 UI</option><option>12 UI</option><option>14 UI</option><option>16 UI</option>'
-          +'<option>18 UI</option><option>20 UI</option><option>22 UI</option><option>24 UI</option>'
-          +'<option>26 UI</option><option>28 UI</option><option>30 UI</option>'
+      function insulinaCell(ui, hrKey){
+        var isActive = ui > 0;
+        var bg = isActive ? '#e0e0e0' : '#fff';
+        var emptyCls = isActive ? '' : ' empty-cell';
+        var opts = '';
+        for(var _u=0;_u<=50;_u+=2) opts+='<option value="'+_u+'"'+((_u===ui||(_u===0&&ui===0))?' selected':'')+'>'+(_u===0?'Ninguna':_u+' UI')+'</option>';
+        return '<td class="dose-cell'+emptyCls+'" style="border:1.5px solid #888;padding:6px 4px;background:'+bg+';text-align:center;vertical-align:middle">'
+          +'<div class="pill-display">'+(isActive?'<div style="font-size:26px">💉</div><div style="font-size:12px;font-weight:bold;margin-top:2px">'+ui+' UI</div>':'')+'</div>'
+          +'<select onchange="updInsulinaCell(this)" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:108px">'
+          +opts
           +'</select>'
           +'</td>';
       }
       var insulinaCells='';
       horas.forEach(function(hr){
-        if(hr.k==='des') insulinaCells+=insulinaCell(io.am, false);
-        else if(hr.k==='cen') insulinaCells+=insulinaCell(io.pm, false);
-        else insulinaCells+='<td style="border:1.5px solid #888;padding:6px 4px;background:#fff;text-align:center;vertical-align:middle"><div style="color:#ccc">—</div></td>';
+        if(hr.k==='des') insulinaCells+=insulinaCell(io.am,'des');
+        else if(hr.k==='cen') insulinaCells+=insulinaCell(io.pm,'cen');
+        else if(hr.k==='alm') insulinaCells+=insulinaCell(0,'alm');
+        else if(hr.k==='once') insulinaCells+=insulinaCell(0,'once');
+        else insulinaCells+=insulinaCell(0,hr.k);
       });
       return '<tr data-idx="'+i+'">' + nombreTd + dosisTd + insulinaCells + '</tr>';
     }
@@ -776,6 +784,19 @@ function updCell(sel,tipo){
   td.style.background=val>0?'#e0e0e0':'#fff';
   td.querySelector('.pill-display').innerHTML=dosisHTML(val,tipo);
   if(val===0)td.classList.add('empty-cell');else td.classList.remove('empty-cell');
+}
+function updInsulinaCell(sel){
+  var ui=parseInt(sel.value),td=sel.parentElement;
+  var disp=td.querySelector('.pill-display');
+  if(ui===0){
+    td.style.background='#fff';
+    td.classList.add('empty-cell');
+    disp.innerHTML='';
+  } else {
+    td.style.background='#e0e0e0';
+    td.classList.remove('empty-cell');
+    disp.innerHTML='<div style="font-size:26px">💉</div><div style="font-size:12px;font-weight:bold;margin-top:2px">'+ui+' UI</div>';
+  }
 }
 var _deletedRows={};
 function eliminarFila(btn){
