@@ -365,6 +365,7 @@ function parsearReceta(lines){
 
   function inferTipo(nombre){
     var n=nombre.toLowerCase();
+    if(/insulina|insulin|nph|glargina|detemir|aspart|lispro|glulisina/.test(n)) return 'insulina';
     for(var k=0;k<INHALADORES.length;k++) if(n.indexOf(INHALADORES[k])!==-1) return 'inhalador';
     for(var k=0;k<GOTAS_KEYWORDS.length;k++) if(n.indexOf(GOTAS_KEYWORDS[k])!==-1) return 'gotas';
     if(/soluci[oó]n|jarabe|suspensi[oó]n/.test(n)) return 'liquido';
@@ -441,6 +442,19 @@ function parsearReceta(lines){
 
     // OBS: buscar en línea siguiente
     var obsStr=null;
+    // INSULINA: detectar dosis AM/PM en formato "10-4", "10 UI AM 4 UI PM", etc.
+    var insulinaObs=null;
+    if(inferTipo(nombre_med)==='insulina'){
+      var uiMatch=l.match(/(\d+)\s*(?:UI|u\.?i\.?)?\s*(?:AM|am|mañana|desayuno)?\s*[-–/]\s*(\d+)\s*(?:UI|u\.?i\.?)?\s*(?:PM|pm|noche|cena)?/i);
+      var nextUiMatch=(i+1<textLines.length)?textLines[i+1].match(/(\d+)\s*(?:UI|u\.?i\.?)?\s*(?:AM|am)?\s*[-–]\s*(\d+)\s*(?:UI|u\.?i\.?)?\s*(?:PM|pm)?/i):null;
+      if(uiMatch) insulinaObs={am:parseInt(uiMatch[1]),pm:parseInt(uiMatch[2])};
+      else if(nextUiMatch) insulinaObs={am:parseInt(nextUiMatch[1]),pm:parseInt(nextUiMatch[2])};
+      else {
+        // Single dose (e.g. "10 UI nocturna")
+        var single=l.match(/(\d+)\s*(?:UI|u\.?i\.?)/i);
+        if(single) insulinaObs={am:0,pm:parseInt(single[1])};
+      }
+    }
     var nextL=i+1<textLines.length?textLines[i+1]:'';
     var obsM=nextL.match(/^Obs\.?\s*[-–]?([\d][\d\-–]*)/i);
     if(!obsM){
@@ -471,9 +485,12 @@ function parsearReceta(lines){
     }
 
     nombre_med=nombre_med.replace(/\s+/g,' ').toUpperCase();
+
+    // IGNORAR: jeringas, pastilleros, insumos que no son medicamentos
+    if(/\b(JERINGA|AGUJA|LANCETA|PASTILLERO|ORGANIZADOR|TIRAS\s+REACTIVAS|GLUCOM[EÉ]TRO)\b/i.test(nombre_med)) continue;
     if(!dosis_med) dosis_med='';
 
-    meds.push({nombre:nombre_med,dosis:dosis_med||'',tipo:inferTipo(nombre_med),indica:inferIndica(nombre_med),obs:obs,meses:mesesMed,sos:esSOS,cantToma:cantToma});
+    meds.push({nombre:nombre_med,dosis:dosis_med||'',tipo:inferTipo(nombre_med),indica:inferIndica(nombre_med),obs:obs,meses:mesesMed,sos:esSOS,cantToma:cantToma,insulinaObs:insulinaObs});
   }
 
   if(!meds.length) warnings.push('No se encontraron medicamentos. ¿Es una receta Eloisa APS?');
@@ -652,8 +669,13 @@ function buildHTML(data) {
   var rows = meds.map(function(m, i) {
     var hh = parsObs(m.obs), bg = i % 2 === 0 ? '#f0f0f0' : '#fff';
     var nombreTd = '<td style="border:1.5px solid #888;padding:9px 10px;background:' + bg + ';word-break:keep-all;vertical-align:middle">'
-      + '<div style="font-size:17px;font-weight:bold">' + m.nombre + '</div>'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">'
+      + '<div>'
+      + '<div class="med-nombre-txt" style="font-size:17px;font-weight:bold">' + m.nombre + '</div>'
       + (m.indica ? '<div style="font-size:11px;color:#444;font-style:italic;margin-top:2px">' + m.indica + '</div>' : '')
+      + '</div>'
+      + '<button class="no-print" onclick="eliminarFila(this)" title="Eliminar medicamento" style="flex-shrink:0;background:none;border:1px solid #ccc;border-radius:4px;padding:2px 6px;font-size:12px;color:#888;cursor:pointer;line-height:1">✕</button>'
+      + '</div>'
       + '</td>';
     var dosisTd = '<td style="border:1.5px solid #888;padding:9px 4px;text-align:center;background:' + bg + ';font-weight:bold;font-size:14px;vertical-align:middle">' + m.dosis + '</td>';
     if(m.sos){
@@ -665,9 +687,38 @@ function buildHTML(data) {
         + '<div style="background:#333;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:bold;letter-spacing:1px">SOS</div>'
         + '<div style="font-size:12px;color:#555;font-style:italic">Solo si hay necesidad</div>'
         + '</div></td>';
-      return '<tr>' + nombreTd + dosisTd + sosTd + '</tr>';
+      return '<tr data-idx="'+i+'">' + nombreTd + dosisTd + sosTd + '</tr>';
     }
-    return '<tr>' + nombreTd + dosisTd
+    // INSULINA: mostrar jeringa con dosis AM/PM
+    if(m.tipo==='insulina'){
+      var io=m.insulinaObs||{am:0,pm:0};
+      var colSpan=horas.length;
+      var insulinaTd='<td colspan="'+colSpan+'" style="border:1.5px solid #888;padding:9px 10px;background:#f8f8f8;vertical-align:middle;text-align:center">'
+        +'<div style="display:inline-flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:center">';
+      if(io.am>0){
+        insulinaTd+='<div style="text-align:center">'
+          +'<div style="font-size:26px">💉</div>'
+          +'<div style="font-weight:bold;font-size:15px">'+io.am+' UI</div>'
+          +'<div style="font-size:11px;color:#555">Mañana</div>'
+          +'</div>';
+      }
+      if(io.am>0 && io.pm>0){
+        insulinaTd+='<div style="font-size:20px;color:#888">—</div>';
+      }
+      if(io.pm>0){
+        insulinaTd+='<div style="text-align:center">'
+          +'<div style="font-size:26px">💉</div>'
+          +'<div style="font-weight:bold;font-size:15px">'+io.pm+' UI</div>'
+          +'<div style="font-size:11px;color:#555">Noche</div>'
+          +'</div>';
+      }
+      if(!io.am && !io.pm){
+        insulinaTd+='<div style="font-size:26px">💉</div><div style="font-size:13px;font-weight:bold">Según indicación médica</div>';
+      }
+      insulinaTd+='</div></td>';
+      return '<tr data-idx="'+i+'">' + nombreTd + dosisTd + insulinaTd + '</tr>';
+    }
+    return '<tr data-idx="'+i+'">' + nombreTd + dosisTd
       + horas.map(function(hr){return makeCell(hh[hr.k]||0, m.tipo);}).join('')
       + '</tr>';
   }).join('');
@@ -727,6 +778,29 @@ function updCell(sel,tipo){
   td.querySelector('.pill-display').innerHTML=dosisHTML(val,tipo);
   if(val===0)td.classList.add('empty-cell');else td.classList.remove('empty-cell');
 }
+var _deletedRows={};
+function eliminarFila(btn){
+  var tr=btn.closest('tr');
+  var idx=tr.dataset.idx;
+  _deletedRows[idx]=tr.outerHTML;
+  tr.style.display='none';
+  var undo=document.getElementById('undo-bar');
+  undo.style.display='flex';
+  undo.dataset.last=idx;
+  undo.querySelector('.undo-name').textContent=tr.querySelector('.med-nombre-txt').textContent;
+}
+function revertirEliminacion(){
+  var undo=document.getElementById('undo-bar');
+  var idx=undo.dataset.last;
+  if(!idx||!_deletedRows[idx])return;
+  var tr=document.querySelector('tr[data-idx="'+idx+'"]');
+  if(tr) tr.style.display='';
+  delete _deletedRows[idx];
+  // Check if any more deleted rows
+  var remaining=Object.keys(_deletedRows);
+  if(remaining.length===0){ undo.style.display='none'; }
+  else { undo.dataset.last=remaining[remaining.length-1]; }
+}
 `.trim();
 
   return '<!DOCTYPE html>\n<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">\n'
@@ -755,6 +829,7 @@ function updCell(sel,tipo){
   + 'Debe solicitar hora m&eacute;dica o acercarse a SOME para renovar su receta.'
   + '</div>\n'
   + '<div style="text-align:center;border-top:2px solid #555;border-bottom:2px solid #555;padding:5px 0;margin-bottom:12px;font-size:14px;font-weight:bold">Tome sus medicamentos todos los días a la misma hora</div>\n'
+    + '<div id="undo-bar" class="no-print" style="display:none;align-items:center;gap:10px;background:#333;color:#fff;padding:8px 14px;border-radius:8px;margin-bottom:10px;font-size:13px"><span>&#128465; Eliminado: <strong class="undo-name"></strong></span><button onclick="revertirEliminacion()" style="margin-left:auto;padding:4px 14px;background:#fff;color:#333;border:none;border-radius:5px;font-weight:bold;cursor:pointer">&#8617; Deshacer</button></div>\n'
     + '<table><thead><tr>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table>\n'
     + '<div style="margin-top:12px;text-align:center;font-size:11px;color:#666;border-top:1px solid #ccc;padding-top:8px">Si tiene dudas, consulte a su médico o al personal de salud<br>Hospital de Fresia · S.S. del Reloncaví · Departamento de Salud</div>\n'
     + '<button class="no-print" onclick="window.print()" style="display:block;margin:12px auto;padding:9px 28px;font-size:15px;font-weight:bold;background:#1a3a2a;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Imprimir</button>\n'
