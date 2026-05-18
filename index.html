@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -523,16 +523,16 @@ function parsearReceta(lines){
       }
     }
     var nextL=i+1<textLines.length?textLines[i+1]:'';
-    var obsM=nextL.match(/^Obs\.?\s*[-–]?([\d][\d\-–]*)/i);
+    var obsM=nextL.match(/^Obs\\.?\\s*[-–\\s]*(\\d+\\s*[-–]\\s*\\d+(?:\\s*[-–]\\s*\\d+){0,2})/i);
     if(!obsM){
       // A veces está en la misma línea al final: "... meses Obs. -1-0"
-      var obsInline=l.match(/Obs\.?\s*[-–]?([\d][\d\-–]*)/i);
+      var obsInline=l.match(/Obs\\.?\\s*[-–\\s]*(\\d+\\s*[-–]\\s*\\d+(?:\\s*[-–]\\s*\\d+){0,2})/i);
       if(obsInline) obsStr=obsInline[1];
     } else {
       obsStr=obsM[1];
     }
     // Limpiar guiones extra al inicio/fin
-    if(obsStr) obsStr=obsStr.replace(/^-+|-+$/g,'').replace(/–/g,'-');
+    if(obsStr) obsStr=obsStr.replace(/^[-\s]+|[-\s]+$/g,'').replace(/–/g,'-').replace(/\s*-\s*/g,'-');
     // Si obs tiene 2 partes, expandir a 3
     if(obsStr){
       var parts=obsStr.split('-');
@@ -556,8 +556,11 @@ function parsearReceta(lines){
     }
 
     // Aplicar cantToma solo si el obs fue inferido (no venía explícito en la receta)
-    if(cantToma>1 && !obsStr){
-      obs=obs.split('-').map(function(v){return parseInt(v)>0?String(parseInt(v)*cantToma):'0';}).join('-');
+    if(cantToma!==1 && !obsStr){
+      obs=obs.split('-').map(function(v){
+        var n=parseFloat(v);
+        return n>0?String(Math.round(n*cantToma*100)/100):'0';
+      }).join('-');
     }
 
     nombre_med=nombre_med.replace(/\s+/g,' ').toUpperCase();
@@ -736,20 +739,21 @@ function buildHTML(data) {
   function makeCell(count, tipo) {
     var bg = count > 0 ? '#e0e0e0' : '#fff';
     var opts = tipo === 'gotas'
-      ? [0,1,2,3,4,5,6].map(function(n){return{v:n,l:n===0?'0 gotas':n+(n===1?' gota':' gotas')};})
+      ? [0,1,2,3,4,5,6].map(function(n){return{v:n,l:n===0?'Ninguna':n+(n===1?' gota':' gotas')};})
       : tipo === 'inhalador'
-      ? [0,1,2,3,4].map(function(n){return{v:n,l:n===0?'0 puffs':n+(n===1?' puff':' puffs')};})
+      ? [0,1,2,3,4].map(function(n){return{v:n,l:n===0?'Ninguna':n+(n===1?' puff':' puffs')};})
       : tipo === 'jarabe'
       ? [0,2.5,5,7.5,10,15,20,25,30].map(function(n){return{v:n,l:n===0?'Ninguna':n+' ml'};})
-      : [{v:0,l:'Ninguna'},{v:0.25,l:'¼ past.'},{v:0.5,l:'½ past.'},{v:1,l:'1 pastilla'},{v:2,l:'2 pastillas'},{v:3,l:'3 pastillas'},{v:4,l:'4 pastillas'},{v:5,l:'5 pastillas'},{v:6,l:'6 pastillas'}];
-    var selOpts = opts.map(function(o){return'<option value="'+o.v+'"'+(o.v===count?' selected':'')+'>'+o.l+'</option>';}).join('');
-    // La clase "empty-cell" se usa para ocultar en impresión cuando valor es 0
+      : [{v:0,l:'Ninguna'},{v:0.25,l:'¼ past.'},{v:0.5,l:'½ past.'},{v:0.75,l:'¾ past.'},{v:1,l:'1 pastilla'},{v:2,l:'2 pastillas'},{v:3,l:'3 pastillas'},{v:4,l:'4 pastillas'},{v:5,l:'5 pastillas'},{v:6,l:'6 pastillas'}];
+    var selOpts = opts.map(function(o){return '<option value="'+o.v+'"'+(o.v===count?' selected':'')+'>'+o.l+'</option>';}).join('');
     var cls = count === 0 ? 'dose-cell empty-cell' : 'dose-cell';
+    // Use data-tipo on select instead of passing tipo as string argument
     return '<td class="' + cls + '" style="border:1.5px solid #888;padding:6px 4px;text-align:center;vertical-align:middle;background:' + bg + '">'
       + '<div class="pill-display">' + dosisHTML(count, tipo) + '</div>'
-      + '<select class="qty-select" onchange="updCell(this,\'' + tipo + '\')" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:110px">'
+      + '<select class="qty-select" data-tipo="' + tipo + '" onchange="updCell(this)" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:110px">'
       + selOpts + '</select></td>';
   }
+
 
   var colW = tieneOnce ? '14%' : '18%';
   var ths = '<th style="background:#222;color:#fff;padding:9px 10px;font-size:14px;text-align:left;width:28%">MEDICAMENTO</th>'
@@ -794,7 +798,10 @@ function buildHTML(data) {
       var sosDosis = dosisSOSHTML(cant, m.tipo);
       var sosTd = '<td colspan="' + horas.length + '" style="border:1.5px solid #888;padding:9px 10px;background:#f5f5f0;vertical-align:middle;text-align:center">'
         + '<div style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center">'
-        + sosDosis
+        + '<div id="sos-disp-'+i+'">' + sosDosis + '</div>'
+        + '<select data-tipo="'+tipo+'" data-idx="'+tr.dataset.idx+'" onchange="updSOSLive(this)" style="font-size:11px;padding:2px 4px;border:1px solid #999;border-radius:3px;background:#fff">'
+      + makeSosOpts(tipo, sosCant)
+      + '</select>'
         + '<div style="background:#333;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:bold;letter-spacing:1px">SOS</div>'
         + '<div style="font-size:12px;color:#555;font-style:italic">Solo si hay necesidad</div>'
         + '<button class="no-print" onclick="toggleSOS(this)" style="padding:3px 10px;font-size:11px;border:1px solid #aaa;border-radius:4px;background:#fff;cursor:pointer;margin-left:4px">&#8629; Quitar SOS</button>'
@@ -894,7 +901,8 @@ function dosisHTML(count,tipo){
   var lbl=count===1?'1 pastilla':count===0.75?'3/4 pastilla':count===0.5?'1/2 pastilla':count===0.25?'1/4 pastilla':count+' pastillas';
   return out.join('')+'<div style="font-size:12px;font-weight:bold;margin-top:2px">'+lbl+'</div>';
 }
-function updCell(sel,tipo){
+function updCell(sel){
+  var tipo=sel.dataset.tipo||'pastilla';
   var val=parseFloat(sel.value),td=sel.parentElement;
   td.style.background=val>0?'#e0e0e0':'#fff';
   td.querySelector('.pill-display').innerHTML=dosisHTML(val,tipo);
@@ -939,77 +947,107 @@ function updSOSCant(sel, tipo){
   else{var pills='';for(var i=0;i<Math.min(Math.round(val),6);i++)pills+='⬤ ';disp.innerHTML='<div style="font-size:22px;color:#555">'+pills.trim()+'</div><div style="font-size:12px;font-weight:bold">'+val+' pastilla'+(val!==1?'s':'')+'</div>';}
 }
 function toggleSOS(btn){
-  var tr=btn.closest('tr');
-  var isSOS=tr.dataset.sos==='1';
-  var tipo=tr.dataset.tipo||'pastilla';
-  var obs=tr.dataset.obs||'1-0-1';
-  var cant=parseFloat(tr.dataset.cant)||1;
-  var tbody=tr.parentElement;
-  var idx=tr.dataset.idx;
+  var tr = btn.closest('tr');
+  var isSOS = tr.dataset.sos === '1';
+  var tipo  = tr.dataset.tipo || 'pastilla';
+  var obs   = tr.dataset.obs  || '1-0-0';
+  var cant  = parseFloat(tr.dataset.cant) || 1;
+  var nHoraCols = tr.querySelectorAll('td.dose-cell, td[colspan]').length;
+  // Count actual hora columns from the header
+  var allTh = document.querySelectorAll('#tabla-print thead tr th');
+  var totalTh = allTh.length;
+  // Columns = total - MEDICAMENTO - DOSIS - SOS-button = total - 3
+  var horaCols = totalTh - 3;
+  if(horaCols < 3) horaCols = 3;
+
   if(isSOS){
-    // Convert SOS → normal columns
-    // Rebuild the hora cells from obs
-    var parts=obs.split('-').map(Number);
-    var nHoras=document.querySelectorAll('#tabla-print thead th').length - 3; // subtract med+dosis+sos-btn cols
-    var newCells='';
-    var hKeys=nHoras===4?['des','alm','once','cen']:['des','alm','cen'];
-    var hVals=parts.length===4?parts:[parts[0]||0,parts[1]||0,parts[2]||0];
-    hKeys.forEach(function(k,i){
-      var v=hVals[i]||0;
-      var bg=v>0?'#e0e0e0':'#fff';
-      var ec=v===0?' empty-cell':'';
-      newCells+='<td class="dose-cell'+ec+'" style="border:1.5px solid #888;padding:6px 4px;background:'+bg+';text-align:center;vertical-align:middle">'
-        +'<div class="pill-display">'+dosisHTML(v,tipo)+'</div>'
-        +'<select onchange="updCell(this,''+tipo+'')" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:108px">'
-        +buildOpts(tipo,v)
-        +'</select></td>';
-    });
-    // Replace the SOS colspan td with normal cells + SOS button
-    var normalSosBtn='<td style="border:1.5px solid #888;padding:4px;text-align:center;vertical-align:middle;width:1%" class="no-print">'
-      +'<button onclick="toggleSOS(this)" style="padding:3px 8px;font-size:10px;border:1px solid #aaa;border-radius:4px;background:#fff;cursor:pointer;white-space:nowrap">SOS</button>'
-      +'</td>';
-    // Find and replace the colspan td
-    var sosTd=tr.querySelector('td[colspan]');
-    if(sosTd){
-      var tmpDiv=document.createElement('div');
-      tmpDiv.innerHTML=newCells+normalSosBtn;
-      while(tmpDiv.firstChild) tr.insertBefore(tmpDiv.firstChild, sosTd);
-      tr.removeChild(sosTd);
+    // ── SOS → Normal columns ──────────────────────────────
+    // Parse obs into per-hora values
+    var parts = obs.replace(/\s/g,'').split('-').map(parseFloat);
+    while(parts.length < horaCols) parts.push(0);
+
+    // Remove the SOS colspan td
+    var sosTd = tr.querySelector('td[colspan]');
+    if(!sosTd) return;
+
+    // Build normal dose cells
+    var frag = document.createDocumentFragment();
+    for(var i=0; i<horaCols; i++){
+      var val = isNaN(parts[i]) ? 0 : parts[i];
+      var td = document.createElement('td');
+      td.className = 'dose-cell' + (val===0?' empty-cell':'');
+      td.style.cssText = 'border:1.5px solid #888;padding:6px 4px;background:'+(val>0?'#e0e0e0':'#fff')+';text-align:center;vertical-align:middle';
+      td.innerHTML = '<div class="pill-display">'+dosisHTML(val,tipo)+'</div>'
+        + '<select data-tipo="'+tipo+'" onchange="updCell(this)" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:108px">'
+        + buildOpts(tipo,val)
+        + '</select>';
+      frag.appendChild(td);
     }
-    tr.dataset.sos='0';
+    // Add SOS button td
+    var sosBtnTd = document.createElement('td');
+    sosBtnTd.className = 'no-print';
+    sosBtnTd.style.cssText = 'border:1.5px solid #888;padding:4px;text-align:center;vertical-align:middle;width:1%';
+    sosBtnTd.innerHTML = '<button onclick="toggleSOS(this)" style="padding:3px 8px;font-size:10px;border:1px solid #aaa;border-radius:4px;background:#fff;cursor:pointer;white-space:nowrap">SOS</button>';
+    frag.appendChild(sosBtnTd);
+
+    tr.replaceChild(frag, sosTd);
+    tr.dataset.sos = '0';
+
   } else {
-    // Convert normal → SOS
-    var cant2=1;
-    var firstSel=tr.querySelector('.dose-cell select');
-    if(firstSel){
-      var v2=parseFloat(firstSel.value);
-      if(v2>0) cant2=v2;
+    // ── Normal → SOS ──────────────────────────────────────
+    // Read current values from the dose cells
+    var doseCells = tr.querySelectorAll('td.dose-cell');
+    var currentVals = Array.from(doseCells).map(function(td){
+      var sel = td.querySelector('select');
+      return sel ? parseFloat(sel.value)||0 : 0;
+    });
+    // Use max non-zero value as SOS cant
+    var sosCant = currentVals.filter(function(v){return v>0;});
+    sosCant = sosCant.length ? Math.max.apply(null,sosCant) : cant;
+    tr.dataset.cant = sosCant;
+    tr.dataset.sos  = '1';
+
+    // Remove dose cells and SOS btn column
+    tr.querySelectorAll('td.dose-cell, td.no-print').forEach(function(td){tr.removeChild(td);});
+
+    // Build SOS dosis display
+    function sosDosDisp(v, tp){
+      if(tp==='gotas'){var g='';for(var i=0;i<Math.min(Math.round(v),10);i++)g+='💧';return'<div style="font-size:22px">'+g+'</div><div style="font-size:12px;font-weight:bold">'+v+' gota'+(v!==1?'s':'')+'</div>';}
+      if(tp==='inhalador'){var p='';for(var i=0;i<Math.min(Math.round(v),6);i++)p+='💨';return'<div style="font-size:22px">'+p+'</div><div style="font-size:12px;font-weight:bold">'+v+' puff'+(v>1?'s':'')+'</div>';}
+      if(tp==='jarabe'){return'<div style="font-size:26px">🥄</div><div style="font-size:12px;font-weight:bold">'+v+' ml</div>';}
+      var pills='';for(var i=0;i<Math.min(Math.round(v),6);i++)pills+='⬤ ';
+      return'<div style="font-size:22px;color:#555">'+pills.trim()+'</div><div style="font-size:12px;font-weight:bold">'+(v===0.75?'¾':v===0.5?'½':v===0.25?'¼':v)+' pastilla'+(v>1?'s':'')+'</div>';
     }
-    tr.dataset.cant=cant2;
-    // Remove all dose cells and SOS btn cell
-    var cells=tr.querySelectorAll('td.dose-cell, td.no-print');
-    cells.forEach(function(c){tr.removeChild(c);});
-    // Build SOS td
-    var sosDosHTML='';
-    if(tipo==='gotas'){var g='';for(var i=0;i<Math.min(Math.round(cant2),10);i++)g+='💧';sosDosHTML='<div style="font-size:22px">'+g+'</div><div style="font-size:12px;font-weight:bold">'+cant2+' gota'+(cant2!==1?'s':'')+'</div>';}
-    else if(tipo==='inhalador'){var p='';for(var i=0;i<Math.min(Math.round(cant2),6);i++)p+='💨';sosDosHTML='<div style="font-size:22px">'+p+'</div><div style="font-size:12px;font-weight:bold">'+cant2+' puff'+(cant2>1?'s':'')+'</div>';}
-    else if(tipo==='jarabe'){sosDosHTML='<div style="font-size:26px">🥄</div><div style="font-size:12px;font-weight:bold">'+cant2+' ml</div>';}
-    else{var pills='';for(var i=0;i<Math.min(Math.round(cant2),6);i++)pills+='⬤ ';sosDosHTML='<div style="font-size:22px;color:#555">'+pills.trim()+'</div><div style="font-size:12px;font-weight:bold">'+cant2+' pastilla'+(cant2!==1?'s':'')+'</div>';}
-    var nCols=document.querySelectorAll('#tabla-print thead th').length-3;
-    var newSosTd=document.createElement('td');
-    newSosTd.colSpan=nCols;
-    newSosTd.style.cssText='border:1.5px solid #888;padding:9px 10px;background:#f5f5f0;vertical-align:middle;text-align:center';
-    newSosTd.innerHTML='<div style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center">'
-      +sosDosHTML
-      +'<select style="font-size:11px;padding:2px 4px;border:1px solid #999;border-radius:3px;background:#fff" onchange="updSOSCant(this,''+tipo+'')">'+makeSosOpts(tipo,cant2)+'</select>'
-      +'<div style="background:#333;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:bold;letter-spacing:1px">SOS</div>'
-      +'<div style="font-size:12px;color:#555;font-style:italic">Solo si hay necesidad</div>'
-      +'<button class="no-print" onclick="toggleSOS(this)" style="padding:3px 10px;font-size:11px;border:1px solid #aaa;border-radius:4px;background:#fff;cursor:pointer;margin-left:4px">&#8629; Quitar SOS</button>'
-      +'</div>';
-    tr.appendChild(newSosTd);
-    tr.dataset.sos='1';
+
+    var newTd = document.createElement('td');
+    newTd.colSpan = horaCols;
+    newTd.style.cssText = 'border:1.5px solid #888;padding:9px 10px;background:#f5f5f0;vertical-align:middle;text-align:center';
+    newTd.innerHTML =
+      '<div style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center">'
+      + '<div id="sos-disp-'+tr.dataset.idx+'">'+sosDosDisp(sosCant,tipo)+'</div>'
+      + '<select onchange="updSOSLive(this,\''+tipo+'\',\''+tr.dataset.idx+'\')" style="font-size:11px;padding:2px 4px;border:1px solid #999;border-radius:3px;background:#fff">'
+      + makeSosOpts(tipo, sosCant)
+      + '</select>'
+      + '<div style="background:#333;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:bold;letter-spacing:1px">SOS</div>'
+      + '<div style="font-size:12px;color:#555;font-style:italic">Solo si hay necesidad</div>'
+      + '<button class="no-print" onclick="toggleSOS(this)" style="padding:3px 10px;font-size:11px;border:1px solid #aaa;border-radius:4px;background:#fff;cursor:pointer">&#8629; Quitar SOS</button>'
+      + '</div>';
+    tr.appendChild(newTd);
   }
 }
+function updSOSLive(sel){
+  var tipo = sel.dataset.tipo || 'pastilla';
+  var idx  = sel.dataset.idx  || '';
+  var val  = parseFloat(sel.value);
+  var disp = document.getElementById('sos-disp-'+idx);
+  if(!disp) return;
+  if(tipo==='gotas'){var g='';for(var i=0;i<Math.min(Math.round(val),10);i++)g+='💧';disp.innerHTML='<div style="font-size:22px">'+g+'</div><div style="font-size:12px;font-weight:bold">'+val+' gota'+(val!==1?'s':'')+'</div>';return;}
+  if(tipo==='inhalador'){var p='';for(var i=0;i<Math.min(Math.round(val),6);i++)p+='💨';disp.innerHTML='<div style="font-size:22px">'+p+'</div><div style="font-size:12px;font-weight:bold">'+val+' puff'+(val>1?'s':'')+'</div>';return;}
+  if(tipo==='jarabe'){disp.innerHTML='<div style="font-size:26px">🥄</div><div style="font-size:12px;font-weight:bold">'+val+' ml</div>';return;}
+  var pills='';for(var i=0;i<Math.min(Math.round(val),6);i++)pills+='⬤ ';
+  disp.innerHTML='<div style="font-size:22px;color:#555">'+pills.trim()+'</div><div style="font-size:12px;font-weight:bold">'+(val===0.75?'¾':val===0.5?'½':val===0.25?'¼':val)+' pastilla'+(val>1?'s':'')+'</div>';
+}
+
 function buildOpts(tipo,current){
   var opts=tipo==='gotas'
     ?[0,1,2,3,4,5,6].map(function(n){return{v:n,l:n===0?'Ninguna':n+' gota'+(n!==1?'s':'')};})
