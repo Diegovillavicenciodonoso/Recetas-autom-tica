@@ -339,81 +339,26 @@ function parsearReceta(lines){
   var INDICACIONES={
     'losartan':'Para la presión arterial','enalapril':'Para la presión arterial',
     'amlodipino':'Para la presión arterial','atenolol':'Para la presión arterial',
-    'bisoprolol':'Para la presión arterial','carvedilol':'Para la presión arterial',
-    'ramipril':'Para la presión arterial','lisinopril':'Para la presión arterial',
-    'valsartan':'Para la presión arterial','irbesartan':'Para la presión arterial',
-    'hidroclorotiazida':'Para la presión arterial','clortalidona':'Para la presión arterial',
-    'indapamida':'Para la presión arterial','espironolactona':'Para la presión arterial',
-    'furosemida':'Para el exceso de líquidos',
-    'atorvastatina':'Para el colesterol','simvastatina':'Para el colesterol',
-    'rosuvastatina':'Para el colesterol','pravastatina':'Para el colesterol',
-    'ezetimiba':'Para el colesterol','fenofibrato':'Para el colesterol',
-    'metformina':'Para la diabetes','vildagliptina':'Para la diabetes',
-    'glibenclamida':'Para la diabetes','glimepirida':'Para la diabetes',
-    'sitagliptina':'Para la diabetes','empagliflozina':'Para la diabetes',
+    'hidroclorotiazida':'Para la presión arterial','furosemida':'Para el exceso de líquidos',
+    'atorvastatina':'Para el colesterol','simvastatina':'Para el colesterol','rosuvastatina':'Para el colesterol',
+    'metformina':'Para la diabetes','vildagliptina':'Para la diabetes','glibenclamida':'Para la diabetes',
     'insulina':'Para la diabetes (inyección)',
-    'acido acetilsalicilico':'Anticoagulante','aspirina':'Anticoagulante',
-    'warfarina':'Anticoagulante','apixaban':'Anticoagulante',
-    'rivaroxaban':'Anticoagulante','clopidogrel':'Anticoagulante',
+    'acido acetilsalicilico':'Anticoagulante','aspirina':'Anticoagulante','warfarina':'Anticoagulante',
     'omeprazol':'Para proteger el estómago','pantoprazol':'Para proteger el estómago',
-    'esomeprazol':'Para proteger el estómago','lansoprazol':'Para proteger el estómago',
-    'ranitidina':'Para proteger el estómago',
-    'lactulosa':'Para mejorar las deposiciones','bisacodilo':'Para mejorar las deposiciones',
-    'macrogol':'Para mejorar las deposiciones','picosulfato':'Para mejorar las deposiciones',
-    'metoclopramida':'Para las náuseas','ondansetron':'Para las náuseas',
-    'domperidona':'Para las náuseas',
-    'levotiroxina':'Para la tiroides','metimazol':'Para la tiroides',
-    'allopurinol':'Para el ácido úrico','colchicina':'Para la gota',
-    'prednisona':'Antiinflamatorio','betametasona':'Antiinflamatorio',
-    'dexametasona':'Antiinflamatorio','hidrocortisona':'Antiinflamatorio',
-    'ibuprofeno':'Para el dolor e inflamación','ketoprofeno':'Para el dolor e inflamación',
-    'naproxeno':'Para el dolor e inflamación','meloxicam':'Para el dolor e inflamación',
-    'paracetamol':'Para el dolor y la fiebre','tramadol':'Para el dolor fuerte',
-    'morfina':'Para el dolor fuerte','codeina':'Para el dolor y la tos',
-    'amoxicilina':'Antibiótico','ciprofloxacino':'Antibiótico',
-    'azitromicina':'Antibiótico','claritromicina':'Antibiótico',
-    'metronidazol':'Antibiótico','cotrimoxazol':'Antibiótico',
-    'cefalexina':'Antibiótico','cloxacilina':'Antibiótico',
-    'calcio':'Para los huesos','alendronato':'Para los huesos',
-    'vitamina d':'Vitamina D','colecalciferol':'Vitamina D',
-    'hierro':'Para la anemia','acido folico':'Para la anemia',
-    'vitamina b12':'Para la anemia','cianocobalamina':'Para la anemia',
-    'escitalopram':'Para el ánimo','sertralina':'Para el ánimo',
-    'fluoxetina':'Para el ánimo','paroxetina':'Para el ánimo',
-    'venlafaxina':'Para el ánimo','duloxetina':'Para el ánimo',
-    'mirtazapina':'Para el ánimo','amitriptilina':'Para el ánimo',
-    'clomipramina':'Para el ánimo','imipramina':'Para el ánimo',
-    'clonazepam':'Para la ansiedad','alprazolam':'Para la ansiedad',
-    'diazepam':'Para la ansiedad','lorazepam':'Para la ansiedad',
-    'eszopiclona':'Para dormir','zolpidem':'Para dormir',
-    'melatonina':'Para dormir','lormetazepam':'Para dormir',
-    'nitrazepam':'Para dormir','midazolam':'Para dormir',
-    'risperidona':'Para tranquilizar','olanzapina':'Para tranquilizar',
-    'haloperidol':'Para tranquilizar','clozapina':'Para tranquilizar',
-    'aripiprazol':'Para tranquilizar','amisulpride':'Para tranquilizar',
-    'quetiapina':'Para dormir y tranquilizar',
-    'acido valproico':'Para las convulsiones','valproato':'Para las convulsiones',
-    'carbamazepina':'Para las convulsiones','lamotrigina':'Para las convulsiones',
-    'levetiracetam':'Para las convulsiones','fenitoina':'Para las convulsiones',
-    'gabapentina':'Para el dolor nervioso o convulsiones',
-    'pregabalina':'Para el dolor nervioso',
-    'donepezilo':'Para la memoria','rivastigmina':'Para la memoria',
-    'memantina':'Para la memoria','galantamina':'Para la memoria',
+    'levotiroxina':'Para la tiroides','allopurinol':'Para el ácido úrico',
+    'prednisona':'Antiinflamatorio','ibuprofeno':'Para el dolor e inflamación',
+    'paracetamol':'Para el dolor y la fiebre','amoxicilina':'Antibiótico',
+    'calcio':'Para los huesos','hierro':'Para la anemia',
+    'clonazepam':'Para la ansiedad o el sueño','sertralina':'Para el ánimo',
+    'fluoxetina':'Para el ánimo','risperidona':'Para el sistema nervioso',
     'timolol':'Gotas para los ojos','latanoprost':'Gotas para los ojos',
     'dorzolamida':'Gotas para los ojos','betaxolol':'Gotas para los ojos',
-    'bimatoprost':'Gotas para los ojos','travoprost':'Gotas para los ojos',
     'salbutamol':'Inhalador para la respiración','brexotide':'Inhalador corticoide',
     'salmeterol':'Inhalador para la respiración','budesonida':'Inhalador corticoide',
     'fluticasona':'Inhalador corticoide','bromuro de ipratropio':'Inhalador para la respiración',
     'ipratropio':'Inhalador para la respiración','tiotropio':'Inhalador para la respiración',
     'beclometasona':'Inhalador corticoide','formoterol':'Inhalador para la respiración',
-    'indacaterol':'Inhalador para la respiración',
-    'digoxina':'Para el corazón','amiodarona':'Para el corazón',
-    'buprenorfina':'Para el dolor fuerte (parche)','fentanilo':'Para el dolor fuerte (parche)',
-    'nitroglicerina':'Para el corazón (parche)','scopolamina':'Para las náuseas (parche)',
-    'rotigotina':'Para el Parkinson (parche)','rivastigmina parche':'Para la memoria (parche)',
-    'enalapril':'Para la presión arterial',
-  };;
+  };
 
   var INHALADORES=['salbutamol','brexotide','salmeterol','budesonida','fluticasona',
     'ipratropio','tiotropio','beclometasona','formoterol','ventolin','seretide','symbicort','atrovent'];
@@ -422,11 +367,9 @@ function parsearReceta(lines){
   function inferTipo(nombre){
     var n=nombre.toLowerCase();
     if(/insulina|insulin|nph|glargina|detemir|aspart|lispro|glulisina/.test(n)) return 'insulina';
-    if(/parche|transderm|patch|buprenorfina|fentanilo|nitroglicerina|scopolamina/.test(n)) return 'parche';
     for(var k=0;k<INHALADORES.length;k++) if(n.indexOf(INHALADORES[k])!==-1) return 'inhalador';
     for(var k=0;k<GOTAS_KEYWORDS.length;k++) if(n.indexOf(GOTAS_KEYWORDS[k])!==-1) return 'gotas';
-    if(/jarabe|soluci[oó]n oral|suspensi[oó]n oral|lactulosa|lactulose/.test(n)) return 'jarabe';
-    if(/soluci[oó]n|suspensi[oó]n/.test(n)) return 'liquido';
+    if(/soluci[oó]n|jarabe|suspensi[oó]n/.test(n)) return 'liquido';
     return 'pastilla';
   }
 
@@ -481,21 +424,12 @@ function parsearReceta(lines){
     if(!nombre_med)continue;
 
     // Cantidad por toma
-    var cmatch=l.match(/:\s*(\d+(?:\.\d+)?)\s+(?:Comprimido|C[aá]psula|Tableta|Inhalaci[oó]n|Puff|Dosis|Gota|ml|cc|mL|Parche)/i);
+    var cmatch=l.match(/:\s*(\d+(?:\.\d+)?)\s+(?:Comprimido|C[aá]psula|Tableta|Inhalaci[oó]n|Puff|Dosis|Gota|ml)/i);
     if(cmatch) cantToma=parseFloat(cmatch[1]);
-    // Fracción en cualquier forma: "1/2 comprimido", "3/4 comprimido", "1/4 pastilla"
-    var fracMatch=l.match(/[:\s](\d+)\/(\d+)\s*(?:Comprimido|C[aá]psula|Tableta|Parche|Pastilla)/i);
-    if(fracMatch) cantToma=Math.round((parseInt(fracMatch[1])/parseInt(fracMatch[2]))*100)/100;
-    // Parche fracción adicional sin ":"
-    var parcheMatch=l.match(/[:\s](\d+)\/(\d+)\s*parche/i);
-    if(parcheMatch) cantToma=parseInt(parcheMatch[1])/parseInt(parcheMatch[2]);
 
     // Frecuencia
     var fmatch=l.match(/cada\s+(\d+)\s+horas/i);
     if(fmatch) frecH=parseInt(fmatch[1]);
-    // Parche: frecuencia en días → convertir a horas para cálculo de obs
-    var fdias=l.match(/cada\s+(\d+(?:[.,]\d+)?)\s+d[ií]as/i);
-    if(fdias) frecH=Math.round(parseFloat(fdias[1].replace(',','.'))*24);
 
     // MESES de duración
     var mesesMatch=l.match(/por\s+(\d+)\s+mes/i);
@@ -523,16 +457,16 @@ function parsearReceta(lines){
       }
     }
     var nextL=i+1<textLines.length?textLines[i+1]:'';
-    var obsM=nextL.match(/^Obs\\.?\\s*[-–\\s]*(\\d+\\s*[-–]\\s*\\d+(?:\\s*[-–]\\s*\\d+){0,2})/i);
+    var obsM=nextL.match(/^Obs\.?\s*[-–]?([\d][\d\-–]*)/i);
     if(!obsM){
       // A veces está en la misma línea al final: "... meses Obs. -1-0"
-      var obsInline=l.match(/Obs\\.?\\s*[-–\\s]*(\\d+\\s*[-–]\\s*\\d+(?:\\s*[-–]\\s*\\d+){0,2})/i);
+      var obsInline=l.match(/Obs\.?\s*[-–]?([\d][\d\-–]*)/i);
       if(obsInline) obsStr=obsInline[1];
     } else {
       obsStr=obsM[1];
     }
     // Limpiar guiones extra al inicio/fin
-    if(obsStr) obsStr=obsStr.replace(/^[-\s]+|[-\s]+$/g,'').replace(/–/g,'-').replace(/\s*-\s*/g,'-');
+    if(obsStr) obsStr=obsStr.replace(/^-+|-+$/g,'').replace(/–/g,'-');
     // Si obs tiene 2 partes, expandir a 3
     if(obsStr){
       var parts=obsStr.split('-');
@@ -545,22 +479,10 @@ function parsearReceta(lines){
       if(partsN.some(isNaN)) obsStr=null;
     }
     var obs=obsStr||inferObsDefault(nombre_med,frecH);
-    // Parche: override obs with day interval info
-    var parcheInfo=null;
-    if(inferTipo(nombre_med)==='parche'){
-      var diasNum=fdias?parseFloat(fdias[1].replace(',','.')):null;
-      if(!diasNum&&frecH>0) diasNum=Math.round(frecH/24*10)/10;
-      parcheInfo={cant:cantToma,dias:diasNum||3.5};
-      obs='sos'; // treat as SOS-like (no fixed meal column)
-      esSOS=false; // but not SOS either — special render
-    }
 
     // Aplicar cantToma solo si el obs fue inferido (no venía explícito en la receta)
-    if(cantToma!==1 && !obsStr){
-      obs=obs.split('-').map(function(v){
-        var n=parseFloat(v);
-        return n>0?String(Math.round(n*cantToma*100)/100):'0';
-      }).join('-');
+    if(cantToma>1 && !obsStr){
+      obs=obs.split('-').map(function(v){return parseInt(v)>0?String(parseInt(v)*cantToma):'0';}).join('-');
     }
 
     nombre_med=nombre_med.replace(/\s+/g,' ').toUpperCase();
@@ -579,7 +501,7 @@ function parsearReceta(lines){
     }
     if(!dosis_med) dosis_med='';
 
-    meds.push({nombre:nombre_med,dosis:dosis_med||'',tipo:inferTipo(nombre_med),indica:inferIndica(nombre_med),obs:obs,meses:mesesMed,sos:esSOS,cantToma:cantToma,insulinaObs:insulinaObs,parcheInfo:parcheInfo});
+    meds.push({nombre:nombre_med,dosis:dosis_med||'',tipo:inferTipo(nombre_med),indica:inferIndica(nombre_med),obs:obs,meses:mesesMed,sos:esSOS,cantToma:cantToma,insulinaObs:insulinaObs});
   }
 
   if(!meds.length) warnings.push('No se encontraron medicamentos. ¿Es una receta Eloisa APS?');
@@ -697,9 +619,7 @@ function dosisSOSHTML(cant, tipo){
     var p='';for(var i=0;i<Math.min(Math.round(cant),6);i++)p+='💨';
     return '<div style="font-size:22px">'+p+'</div><div style="font-size:12px;font-weight:bold">'+cant+' puff'+(cant>1?'s':'')+'</div>';
   }
-  if(tipo==='jarabe'){
-    return '<div style="font-size:26px">🥄</div><div style="font-size:12px;font-weight:bold">'+cant+' ml</div>';
-  }
+  // pastillas SVG inline simple
   var pills='';
   for(var i=0;i<Math.min(Math.round(cant),6);i++) pills+='⬤ ';
   return '<div style="font-size:22px;color:#555">'+pills.trim()+'</div><div style="font-size:12px;font-weight:bold">'+cant+' pastilla'+(cant!==1?'s':'')+'</div>';
@@ -739,27 +659,23 @@ function buildHTML(data) {
   function makeCell(count, tipo) {
     var bg = count > 0 ? '#e0e0e0' : '#fff';
     var opts = tipo === 'gotas'
-      ? [0,1,2,3,4,5,6].map(function(n){return{v:n,l:n===0?'Ninguna':n+(n===1?' gota':' gotas')};})
+      ? [0,1,2,3,4,5,6].map(function(n){return{v:n,l:n===0?'0 gotas':n+(n===1?' gota':' gotas')};})
       : tipo === 'inhalador'
-      ? [0,1,2,3,4].map(function(n){return{v:n,l:n===0?'Ninguna':n+(n===1?' puff':' puffs')};})
-      : tipo === 'jarabe'
-      ? [0,2.5,5,7.5,10,15,20,25,30].map(function(n){return{v:n,l:n===0?'Ninguna':n+' ml'};})
-      : [{v:0,l:'Ninguna'},{v:0.25,l:'¼ past.'},{v:0.5,l:'½ past.'},{v:0.75,l:'¾ past.'},{v:1,l:'1 pastilla'},{v:2,l:'2 pastillas'},{v:3,l:'3 pastillas'},{v:4,l:'4 pastillas'},{v:5,l:'5 pastillas'},{v:6,l:'6 pastillas'}];
-    var selOpts = opts.map(function(o){return '<option value="'+o.v+'"'+(o.v===count?' selected':'')+'>'+o.l+'</option>';}).join('');
+      ? [0,1,2,3,4].map(function(n){return{v:n,l:n===0?'0 puffs':n+(n===1?' puff':' puffs')};})
+      : [{v:0,l:'Ninguna'},{v:0.25,l:'¼ past.'},{v:0.5,l:'½ past.'},{v:1,l:'1 pastilla'},{v:2,l:'2 pastillas'},{v:3,l:'3 pastillas'},{v:4,l:'4 pastillas'},{v:5,l:'5 pastillas'},{v:6,l:'6 pastillas'}];
+    var selOpts = opts.map(function(o){return'<option value="'+o.v+'"'+(o.v===count?' selected':'')+'>'+o.l+'</option>';}).join('');
+    // La clase "empty-cell" se usa para ocultar en impresión cuando valor es 0
     var cls = count === 0 ? 'dose-cell empty-cell' : 'dose-cell';
-    // Use data-tipo on select instead of passing tipo as string argument
     return '<td class="' + cls + '" style="border:1.5px solid #888;padding:6px 4px;text-align:center;vertical-align:middle;background:' + bg + '">'
       + '<div class="pill-display">' + dosisHTML(count, tipo) + '</div>'
-      + '<select class="qty-select" data-tipo="' + tipo + '" onchange="updCell(this)" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:110px">'
+      + '<select class="qty-select" onchange="updCell(this,\'' + tipo + '\')" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:110px">'
       + selOpts + '</select></td>';
   }
-
 
   var colW = tieneOnce ? '14%' : '18%';
   var ths = '<th style="background:#222;color:#fff;padding:9px 10px;font-size:14px;text-align:left;width:28%">MEDICAMENTO</th>'
     + '<th style="background:#222;color:#fff;padding:9px;font-size:14px;width:10%">DOSIS</th>'
-    + horas.map(function(h){return'<th style="background:#111;color:#fff;padding:9px;font-size:13px;width:'+colW+'">'+h.l+'</th>';}).join('')
-    + '<th class="no-print" style="background:#222;width:1%"></th>';
+    + horas.map(function(h){return'<th style="background:#111;color:#fff;padding:9px;font-size:13px;width:'+colW+'">'+h.l+'</th>';}).join('');
 
   var rows = meds.map(function(m, i) {
     var hh = parsObs(m.obs), bg = i % 2 === 0 ? '#f0f0f0' : '#fff';
@@ -773,40 +689,16 @@ function buildHTML(data) {
       + '</div>'
       + '</td>';
     var dosisTd = '<td style="border:1.5px solid #888;padding:9px 4px;text-align:center;background:' + bg + ';font-weight:bold;font-size:14px;vertical-align:middle">' + m.dosis + '</td>';
-    // PARCHE: mostrar con 🩹 y fracción + intervalo en días
-    if(m.tipo==='parche'&&m.parcheInfo){
-      var pi=m.parcheInfo;
-      var cantStr=pi.cant===0.5?'½':pi.cant===0.25?'¼':pi.cant===0.75?'¾':pi.cant;
-      var diasStr=pi.dias===3.5?'cada 3½ días':pi.dias===7?'cada 7 días':'cada '+pi.dias+' días';
-      var parcheTd='<td colspan="'+horas.length+'" style="border:1.5px solid #888;padding:9px 10px;background:#f5f5f0;vertical-align:middle;text-align:center">'
-        +'<div style="display:inline-flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center">'
-        +'<div style="text-align:center">'
-        +'<div style="font-size:30px">🩹</div>'
-        +'<div style="font-weight:bold;font-size:16px">'+cantStr+' parche</div>'
-        +'</div>'
-        +'<div style="text-align:center;background:#333;color:#fff;padding:6px 14px;border-radius:20px">'
-        +'<div style="font-size:13px;font-weight:bold">'+diasStr+'</div>'
-        +'<div style="font-size:11px;opacity:0.8">cambiar parche</div>'
-        +'</div>'
-        +'</div>'
-        +'</td>';
-      return '<tr data-idx="'+i+'" data-sos="0" data-tipo="'+m.tipo+'" data-obs="'+m.obs+'" data-cant="'+(m.cantToma||1)+'">'
-        + nombreTd + dosisTd + parcheTd + '</tr>';
-    }
     if(m.sos){
       var cant = m.cantToma || 1;
       var sosDosis = dosisSOSHTML(cant, m.tipo);
       var sosTd = '<td colspan="' + horas.length + '" style="border:1.5px solid #888;padding:9px 10px;background:#f5f5f0;vertical-align:middle;text-align:center">'
         + '<div style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center">'
-        + '<div id="sos-disp-'+i+'">' + sosDosis + '</div>'
-        + '<select data-tipo="'+tipo+'" data-idx="'+tr.dataset.idx+'" onchange="updSOSLive(this)" style="font-size:11px;padding:2px 4px;border:1px solid #999;border-radius:3px;background:#fff">'
-      + makeSosOpts(tipo, sosCant)
-      + '</select>'
+        + sosDosis
         + '<div style="background:#333;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:bold;letter-spacing:1px">SOS</div>'
         + '<div style="font-size:12px;color:#555;font-style:italic">Solo si hay necesidad</div>'
-        + '<button class="no-print" onclick="toggleSOS(this)" style="padding:3px 10px;font-size:11px;border:1px solid #aaa;border-radius:4px;background:#fff;cursor:pointer;margin-left:4px">&#8629; Quitar SOS</button>'
         + '</div></td>';
-      return '<tr data-idx="'+i+'" data-sos="1" data-tipo="'+m.tipo+'" data-obs="'+m.obs+'" data-cant="'+(m.cantToma||1)+'">' + nombreTd + dosisTd + sosTd + '</tr>';
+      return '<tr data-idx="'+i+'">' + nombreTd + dosisTd + sosTd + '</tr>';
     }
     // INSULINA: mostrar jeringa en casilla desayuno (AM) y cena (PM)
     if(m.tipo==='insulina'){
@@ -834,11 +726,8 @@ function buildHTML(data) {
       });
       return '<tr data-idx="'+i+'">' + nombreTd + dosisTd + insulinaCells + '</tr>';
     }
-    return '<tr data-idx="'+i+'" data-sos="0" data-tipo="'+m.tipo+'" data-obs="'+m.obs+'" data-cant="'+(m.cantToma||1)+'">' + nombreTd + dosisTd
+    return '<tr data-idx="'+i+'">' + nombreTd + dosisTd
       + horas.map(function(hr){return makeCell(hh[hr.k]||0, m.tipo);}).join('')
-      + '<td style="border:1.5px solid #888;padding:4px;text-align:center;vertical-align:middle;width:1%" class="no-print">'
-      + '<button onclick="toggleSOS(this)" style="padding:3px 8px;font-size:10px;border:1px solid #aaa;border-radius:4px;background:#fff;cursor:pointer;white-space:nowrap" title="Marcar como SOS">SOS</button>'
-      + '</td>'
       + '</tr>';
   }).join('');
 
@@ -858,11 +747,7 @@ function dosisHTML(count,tipo){
     return '<div style="font-size:22px;line-height:1.3">'+p+'</div>'
       +'<div style="font-size:12px;font-weight:bold;margin-top:2px">'+count+' puff'+(count>1?'s':'')+'</div>';
   }
-  if(tipo==="jarabe"){
-    return '<div style="font-size:26px;line-height:1.3">🥄</div>'
-      +'<div style="font-size:12px;font-weight:bold;margin-top:2px">'+count+' ml</div>';
-  }
-  var whole=Math.floor(count),frac=Math.round((count-whole)*4)/4,pills=[]; // frac: 0, 0.25, 0.5, 0.75
+  var whole=Math.floor(count),frac=Math.round((count-whole)*4)/4,pills=[];
   for(var i=0;i<whole;i++)pills.push(1);
   if(frac>0)pills.push(frac);
   var PW=34,PH=18,GAP=5,ROW=3;
@@ -882,12 +767,6 @@ function dosisHTML(count,tipo){
       out.push('<clipPath id="ph'+i+'"><rect x="'+(x-rx)+'" y="'+(y-ry-1)+'" width="'+rx+'" height="'+(PH+2)+'"/></clipPath>');
       shapes.push('<rect x="'+(x-rx)+'" y="'+(y-ry)+'" width="'+PW+'" height="'+PH+'" rx="'+ry+'" fill="#555" stroke="#111" stroke-width="1" clip-path="url(#ph'+i+')"/>');
       shapes.push('<line x1="'+x+'" y1="'+(y-ry)+'" x2="'+x+'" y2="'+(y+ry)+'" stroke="#111" stroke-width="1"/>');
-    } else if(f===0.75){
-      // 3/4: clip off top-right quarter
-      out.push('<clipPath id="ph'+i+'"><polygon points="'+(x-rx)+','+(y-ry)+' '+x+','+(y-ry)+' '+x+','+y+' '+(x+rx)+','+y+' '+(x+rx)+','+(y+ry)+' '+(x-rx)+','+(y+ry)+'"/></clipPath>');
-      shapes.push('<rect x="'+(x-rx)+'" y="'+(y-ry)+'" width="'+PW+'" height="'+PH+'" rx="'+ry+'" fill="#555" stroke="#111" stroke-width="1" clip-path="url(#ph'+i+')"/>');
-      shapes.push('<line x1="'+x+'" y1="'+(y-ry)+'" x2="'+x+'" y2="'+(y+ry)+'" stroke="#111" stroke-width="1"/>');
-      shapes.push('<line x1="'+(x-rx)+'" y1="'+y+'" x2="'+(x+rx)+'" y2="'+y+'" stroke="#111" stroke-width="1"/>');
     } else if(f===0.25){
       out.push('<clipPath id="ph'+i+'"><rect x="'+(x-rx)+'" y="'+(y-ry-1)+'" width="'+rx+'" height="'+(ry+1)+'"/></clipPath>');
       shapes.push('<rect x="'+(x-rx)+'" y="'+(y-ry)+'" width="'+PW+'" height="'+PH+'" rx="'+ry+'" fill="#555" stroke="#111" stroke-width="1" clip-path="url(#ph'+i+')"/>');
@@ -898,11 +777,10 @@ function dosisHTML(count,tipo){
   out.push('</defs>');
   out=out.concat(shapes);
   out.push('</svg>');
-  var lbl=count===1?'1 pastilla':count===0.75?'3/4 pastilla':count===0.5?'1/2 pastilla':count===0.25?'1/4 pastilla':count+' pastillas';
+  var lbl=count===1?'1 pastilla':count===0.5?'1/2 pastilla':count===0.25?'1/4 pastilla':count+' pastillas';
   return out.join('')+'<div style="font-size:12px;font-weight:bold;margin-top:2px">'+lbl+'</div>';
 }
-function updCell(sel){
-  var tipo=sel.dataset.tipo||'pastilla';
+function updCell(sel,tipo){
   var val=parseFloat(sel.value),td=sel.parentElement;
   td.style.background=val>0?'#e0e0e0':'#fff';
   td.querySelector('.pill-display').innerHTML=dosisHTML(val,tipo);
@@ -920,143 +798,6 @@ function updInsulinaCell(sel){
     td.classList.remove('empty-cell');
     disp.innerHTML='<div style="font-size:26px">💉</div><div style="font-size:12px;font-weight:bold;margin-top:2px">'+ui+' UI</div>';
   }
-}
-// SOS helpers
-function makeSosOpts(tipo, current){
-  var vals = tipo==='gotas'
-    ? [1,2,3,4,5,6,7,8,9,10]
-    : tipo==='inhalador'
-    ? [1,2,3,4]
-    : tipo==='jarabe'
-    ? [2.5,5,7.5,10,15,20,25,30]
-    : [0.25,0.5,0.75,1,2,3,4,5,6];
-  var lblFn = tipo==='gotas' ? function(v){return v+' gota'+(v!==1?'s':'');}
-    : tipo==='inhalador' ? function(v){return v+' puff'+(v>1?'s':'');}
-    : tipo==='jarabe' ? function(v){return v+' ml';}
-    : function(v){return v===0.25?'¼ pastilla':v===0.5?'½ pastilla':v===0.75?'¾ pastilla':v===1?'1 pastilla':v+' pastillas';};
-  return vals.map(function(v){return '<option value="'+v+'"'+(v==current?' selected':'')+'>'+lblFn(v)+'</option>';}).join('');
-}
-function updSOSCant(sel, tipo){
-  var val=parseFloat(sel.value);
-  var td=sel.closest('td');
-  var disp=td.querySelector('div:first-child');
-  if(!disp) return;
-  if(tipo==='gotas'){var g='';for(var i=0;i<Math.min(Math.round(val),10);i++)g+='💧';disp.innerHTML='<div style="font-size:22px">'+g+'</div><div style="font-size:12px;font-weight:bold">'+val+' gota'+(val!==1?'s':'')+'</div>';}
-  else if(tipo==='inhalador'){var p='';for(var i=0;i<Math.min(Math.round(val),6);i++)p+='💨';disp.innerHTML='<div style="font-size:22px">'+p+'</div><div style="font-size:12px;font-weight:bold">'+val+' puff'+(val>1?'s':'')+'</div>';}
-  else if(tipo==='jarabe'){disp.innerHTML='<div style="font-size:26px">🥄</div><div style="font-size:12px;font-weight:bold">'+val+' ml</div>';}
-  else{var pills='';for(var i=0;i<Math.min(Math.round(val),6);i++)pills+='⬤ ';disp.innerHTML='<div style="font-size:22px;color:#555">'+pills.trim()+'</div><div style="font-size:12px;font-weight:bold">'+val+' pastilla'+(val!==1?'s':'')+'</div>';}
-}
-function toggleSOS(btn){
-  var tr = btn.closest('tr');
-  var isSOS = tr.dataset.sos === '1';
-  var tipo  = tr.dataset.tipo || 'pastilla';
-  var obs   = tr.dataset.obs  || '1-0-0';
-  var cant  = parseFloat(tr.dataset.cant) || 1;
-  var nHoraCols = tr.querySelectorAll('td.dose-cell, td[colspan]').length;
-  // Count actual hora columns from the header
-  var allTh = document.querySelectorAll('#tabla-print thead tr th');
-  var totalTh = allTh.length;
-  // Columns = total - MEDICAMENTO - DOSIS - SOS-button = total - 3
-  var horaCols = totalTh - 3;
-  if(horaCols < 3) horaCols = 3;
-
-  if(isSOS){
-    // ── SOS → Normal columns ──────────────────────────────
-    // Parse obs into per-hora values
-    var parts = obs.replace(/\s/g,'').split('-').map(parseFloat);
-    while(parts.length < horaCols) parts.push(0);
-
-    // Remove the SOS colspan td
-    var sosTd = tr.querySelector('td[colspan]');
-    if(!sosTd) return;
-
-    // Build normal dose cells
-    var frag = document.createDocumentFragment();
-    for(var i=0; i<horaCols; i++){
-      var val = isNaN(parts[i]) ? 0 : parts[i];
-      var td = document.createElement('td');
-      td.className = 'dose-cell' + (val===0?' empty-cell':'');
-      td.style.cssText = 'border:1.5px solid #888;padding:6px 4px;background:'+(val>0?'#e0e0e0':'#fff')+';text-align:center;vertical-align:middle';
-      td.innerHTML = '<div class="pill-display">'+dosisHTML(val,tipo)+'</div>'
-        + '<select data-tipo="'+tipo+'" onchange="updCell(this)" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:108px">'
-        + buildOpts(tipo,val)
-        + '</select>';
-      frag.appendChild(td);
-    }
-    // Add SOS button td
-    var sosBtnTd = document.createElement('td');
-    sosBtnTd.className = 'no-print';
-    sosBtnTd.style.cssText = 'border:1.5px solid #888;padding:4px;text-align:center;vertical-align:middle;width:1%';
-    sosBtnTd.innerHTML = '<button onclick="toggleSOS(this)" style="padding:3px 8px;font-size:10px;border:1px solid #aaa;border-radius:4px;background:#fff;cursor:pointer;white-space:nowrap">SOS</button>';
-    frag.appendChild(sosBtnTd);
-
-    tr.replaceChild(frag, sosTd);
-    tr.dataset.sos = '0';
-
-  } else {
-    // ── Normal → SOS ──────────────────────────────────────
-    // Read current values from the dose cells
-    var doseCells = tr.querySelectorAll('td.dose-cell');
-    var currentVals = Array.from(doseCells).map(function(td){
-      var sel = td.querySelector('select');
-      return sel ? parseFloat(sel.value)||0 : 0;
-    });
-    // Use max non-zero value as SOS cant
-    var sosCant = currentVals.filter(function(v){return v>0;});
-    sosCant = sosCant.length ? Math.max.apply(null,sosCant) : cant;
-    tr.dataset.cant = sosCant;
-    tr.dataset.sos  = '1';
-
-    // Remove dose cells and SOS btn column
-    tr.querySelectorAll('td.dose-cell, td.no-print').forEach(function(td){tr.removeChild(td);});
-
-    // Build SOS dosis display
-    function sosDosDisp(v, tp){
-      if(tp==='gotas'){var g='';for(var i=0;i<Math.min(Math.round(v),10);i++)g+='💧';return'<div style="font-size:22px">'+g+'</div><div style="font-size:12px;font-weight:bold">'+v+' gota'+(v!==1?'s':'')+'</div>';}
-      if(tp==='inhalador'){var p='';for(var i=0;i<Math.min(Math.round(v),6);i++)p+='💨';return'<div style="font-size:22px">'+p+'</div><div style="font-size:12px;font-weight:bold">'+v+' puff'+(v>1?'s':'')+'</div>';}
-      if(tp==='jarabe'){return'<div style="font-size:26px">🥄</div><div style="font-size:12px;font-weight:bold">'+v+' ml</div>';}
-      var pills='';for(var i=0;i<Math.min(Math.round(v),6);i++)pills+='⬤ ';
-      return'<div style="font-size:22px;color:#555">'+pills.trim()+'</div><div style="font-size:12px;font-weight:bold">'+(v===0.75?'¾':v===0.5?'½':v===0.25?'¼':v)+' pastilla'+(v>1?'s':'')+'</div>';
-    }
-
-    var newTd = document.createElement('td');
-    newTd.colSpan = horaCols;
-    newTd.style.cssText = 'border:1.5px solid #888;padding:9px 10px;background:#f5f5f0;vertical-align:middle;text-align:center';
-    newTd.innerHTML =
-      '<div style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center">'
-      + '<div id="sos-disp-'+tr.dataset.idx+'">'+sosDosDisp(sosCant,tipo)+'</div>'
-      + '<select onchange="updSOSLive(this,\''+tipo+'\',\''+tr.dataset.idx+'\')" style="font-size:11px;padding:2px 4px;border:1px solid #999;border-radius:3px;background:#fff">'
-      + makeSosOpts(tipo, sosCant)
-      + '</select>'
-      + '<div style="background:#333;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:bold;letter-spacing:1px">SOS</div>'
-      + '<div style="font-size:12px;color:#555;font-style:italic">Solo si hay necesidad</div>'
-      + '<button class="no-print" onclick="toggleSOS(this)" style="padding:3px 10px;font-size:11px;border:1px solid #aaa;border-radius:4px;background:#fff;cursor:pointer">&#8629; Quitar SOS</button>'
-      + '</div>';
-    tr.appendChild(newTd);
-  }
-}
-function updSOSLive(sel){
-  var tipo = sel.dataset.tipo || 'pastilla';
-  var idx  = sel.dataset.idx  || '';
-  var val  = parseFloat(sel.value);
-  var disp = document.getElementById('sos-disp-'+idx);
-  if(!disp) return;
-  if(tipo==='gotas'){var g='';for(var i=0;i<Math.min(Math.round(val),10);i++)g+='💧';disp.innerHTML='<div style="font-size:22px">'+g+'</div><div style="font-size:12px;font-weight:bold">'+val+' gota'+(val!==1?'s':'')+'</div>';return;}
-  if(tipo==='inhalador'){var p='';for(var i=0;i<Math.min(Math.round(val),6);i++)p+='💨';disp.innerHTML='<div style="font-size:22px">'+p+'</div><div style="font-size:12px;font-weight:bold">'+val+' puff'+(val>1?'s':'')+'</div>';return;}
-  if(tipo==='jarabe'){disp.innerHTML='<div style="font-size:26px">🥄</div><div style="font-size:12px;font-weight:bold">'+val+' ml</div>';return;}
-  var pills='';for(var i=0;i<Math.min(Math.round(val),6);i++)pills+='⬤ ';
-  disp.innerHTML='<div style="font-size:22px;color:#555">'+pills.trim()+'</div><div style="font-size:12px;font-weight:bold">'+(val===0.75?'¾':val===0.5?'½':val===0.25?'¼':val)+' pastilla'+(val>1?'s':'')+'</div>';
-}
-
-function buildOpts(tipo,current){
-  var opts=tipo==='gotas'
-    ?[0,1,2,3,4,5,6].map(function(n){return{v:n,l:n===0?'Ninguna':n+' gota'+(n!==1?'s':'')};})
-    :tipo==='inhalador'
-    ?[0,1,2,3,4].map(function(n){return{v:n,l:n===0?'Ninguna':n+' puff'+(n>1?'s':'')};})
-    :tipo==='jarabe'
-    ?[0,2.5,5,7.5,10,15,20,25,30].map(function(n){return{v:n,l:n===0?'Ninguna':n+' ml'};})
-    :[{v:0,l:'Ninguna'},{v:0.25,l:'¼ past.'},{v:0.5,l:'½ past.'},{v:0.75,l:'¾ past.'},{v:1,l:'1 pastilla'},{v:2,l:'2 pastillas'},{v:3,l:'3 pastillas'},{v:4,l:'4 pastillas'},{v:5,l:'5 pastillas'},{v:6,l:'6 pastillas'}];
-  return opts.map(function(o){return'<option value="'+o.v+'"'+(o.v==current?' selected':'')+'>'+o.l+'</option>';}).join('');
 }
 var _deletedRows={};
 function eliminarFila(btn){
@@ -1110,7 +851,7 @@ function revertirEliminacion(){
   + '</div>\n'
   + '<div style="text-align:center;border-top:2px solid #555;border-bottom:2px solid #555;padding:5px 0;margin-bottom:12px;font-size:14px;font-weight:bold">Tome sus medicamentos todos los días a la misma hora</div>\n'
     + '<div id="undo-bar" class="no-print" style="display:none;align-items:center;gap:10px;background:#333;color:#fff;padding:8px 14px;border-radius:8px;margin-bottom:10px;font-size:13px"><span>&#128465; Eliminado: <strong class="undo-name"></strong></span><button onclick="revertirEliminacion()" style="margin-left:auto;padding:4px 14px;background:#fff;color:#333;border:none;border-radius:5px;font-weight:bold;cursor:pointer">&#8617; Deshacer</button></div>\n'
-    + '<table id="tabla-print"><thead><tr>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table>\n'
+    + '<table><thead><tr>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table>\n'
     + '<div style="margin-top:12px;text-align:center;font-size:11px;color:#666;border-top:1px solid #ccc;padding-top:8px">Si tiene dudas, consulte a su médico o al personal de salud<br>Hospital de Fresia · S.S. del Reloncaví · Departamento de Salud</div>\n'
     + '<button class="no-print" onclick="window.print()" style="display:block;margin:12px auto;padding:9px 28px;font-size:15px;font-weight:bold;background:#1a3a2a;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Imprimir</button>\n'
     + '<script>\n' + scriptContent + '\n<\/script></body></html>';
