@@ -408,7 +408,7 @@ function parsearReceta(lines){
     var m=l.match(/^-\s+([\wÁÉÍÓÚÑáéíóúñ\s\-\.]+?)\s+(\d+(?:[,\.]\d+)?)\s*(mg|Mg|MG|mcg|Mcg|MCG|g|UI|u)(?!\/)\b/);
     if(m){
       // Cut name at first form/code word before cleaning
-      var _stopWords=/\b(Aerosol|Inhalacion|Inhalaci[oó]n|Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Granulos?|Gr[aá]nulos?|Lf|Lp|Lc|Sr|Xr|Er|Cr|Mf)\b/i;
+      var _stopWords=/\b(Aerosol|Inhalacion|Inhalaci[oó]n|Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Granulos?|Gr[aá]nulos?|Soluci[oó]n|Suspensi[oó]n|Oral|Lf|Lp|Lc|Sr|Xr|Er|Cr|Mf)\b/i;
       var _sw=m[1].search(_stopWords);
       if(_sw>0) m[1]=m[1].substring(0,_sw).trim();
       nombre_med=m[1].replace(/\b(Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Recubiertos?|Recubiertas?|Recubierta?|Entericos?|Entéricos?|Gastrorresistentes?|Granulos?|Gránulos?|Pellets?|Retard|Prolongada?|Liberaci[oó]n\s+Prolongada?|Liberaci[oó]n\s+Controlada?|Liberaci[oó]n\s+Lenta?|L\.P\.|L\.C\.|L\.R\.|XR|SR|ER|CR|MR|LA|OD|Potasico|Pot[aá]sico|S[oó]dico|Sodico|Magn[eé]sico|Calcico|C[aá]lcico|Masticable|Sublingual|Efervescente|Dispersable|Soluble|Bucal|Oral|Film|Filmado|Dura|Blanda|Monosodica|Disodica|S[oó]dica|Clorhidrato|Cloruro|Sulfato|Fosfato|Nitrato|Malato|Tartrato|Fumarato|Maleato|Besilato|Tosilato|Mesilato|HCl|Base|Para|Dosis|Lf|Con)\b/gi,'').replace(/(\([^)]*\)|\d+\/\d+|\d+\/[A-Za-z]+|\/[A-Za-z]*|\d+\s*[Mm][Cc][Gg])/g,'').replace(/\s+/g,' ').trim();
@@ -417,7 +417,7 @@ function parsearReceta(lines){
       var ci=l.indexOf(':');
       // For colon-split names, also truncate at first form word
       var _rawName=ci>1?l.substring(2,ci):l.substring(2);
-      var _sw2=_rawName.search(/\b(Aerosol|Inhalacion|Inhalaci[oó]n|Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Granulos?|Gr[aá]nulos?|Lf|Lp|Lc|Sr|Xr|Er|Cr|Mf)\b/i);
+      var _sw2=_rawName.search(/\b(Aerosol|Inhalacion|Inhalaci[oó]n|Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Granulos?|Gr[aá]nulos?|Soluci[oó]n|Suspensi[oó]n|Oral|Lf|Lp|Lc|Sr|Xr|Er|Cr|Mf)\b/i);
       if(_sw2>1) _rawName=_rawName.substring(0,_sw2).trim();
       if(ci>1) nombre_med=_rawName.replace(/\b(Comprimidos?|C[aá]psulas?|Tabletas?|Grageas?|Recubiertos?|Recubiertas?|Entericos?|Ent[eé]ricos?|Gastrorresistentes?|Gr[aá]nulos?|Pellets?|Retard|Prolongada?|Liberaci[oó]n\s+Prolongada?|Liberaci[oó]n\s+Controlada?|XR|SR|ER|CR|MR|LA|Pot[aá]sico|Potasico|S[oó]dico|Sodico|Magn[eé]sico|C[aá]lcico|Calcico|Masticable|Sublingual|Efervescente|Dispersable|Soluble|Film|Filmado|Inhalador|Inhalaci[oó]n|Clorhidrato|Cloruro|Sulfato|Fosfato|Malato|Tartrato|Fumarato|Maleato|Besilato|HCl|\d+\s*mg|\d+\s*Mg)\b/gi,'').replace(/\s+/g,' ').replace(/(\(\d+[^)]*\)|\d+\/\d+)/g,'').trim();
       else nombre_med=l.substring(2).split(' ').slice(0,3).join(' ');
@@ -440,7 +440,8 @@ function parsearReceta(lines){
     var esSOS = /\bSOS\b|\bPRN\b|\bseg[uú]n\s+necesidad\b|\bsi\s+dolor\b|\bsi\s+fiebre\b|\bsi\s+necesita\b/i.test(l);
     // También buscar en la línea de obs siguiente
     var nextLineForSOS = (i+1 < textLines.length) ? textLines[i+1] : '';
-    if(/\bSOS\b|\bPRN\b/i.test(nextLineForSOS)) esSOS = true;
+    var nextNextLine = (i+2 < textLines.length) ? textLines[i+2] : '';
+    if(/\bSOS\b|\bPRN\b/i.test(nextLineForSOS) || /\bSOS\b|\bPRN\b/i.test(nextNextLine)) esSOS = true;
 
     // OBS: buscar en línea siguiente
     var obsStr=null;
@@ -712,7 +713,15 @@ function buildHTML(data) {
       var sosDosis = dosisSOSHTML(cant, m.tipo);
       var sosTd = '<td colspan="' + horas.length + '" style="border:1.5px solid #888;padding:9px 10px;background:#f5f5f0;vertical-align:middle;text-align:center">'
         + '<div style="display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center">'
-        + sosDosis
+        + '<div id="sos-disp-'+i+'">' + sosDosis + '</div>'
+        + (function(){
+            var _opts=[{v:0.25,l:'¼'},{v:0.5,l:'½'},{v:0.75,l:'¾'},{v:1,l:'1'},{v:2,l:'2'},{v:3,l:'3'},{v:4,l:'4'},{v:5,l:'5'},{v:6,l:'6'}];
+            if(m.tipo==='gotas') _opts=[1,2,3,4,5,6,7,8,9,10].map(function(n){return{v:n,l:n};});
+            if(m.tipo==='inhalador') _opts=[1,2,3,4].map(function(n){return{v:n,l:n};});
+            if(m.tipo==='jarabe') _opts=[2.5,5,7.5,10,15,20,25,30].map(function(n){return{v:n,l:n+' ml'};});
+            var _sopts=_opts.map(function(o){return'<option value="'+o.v+'"'+(Math.abs(o.v-cant)<0.001?' selected':'')+'>'+o.l+'</option>';}).join('');
+            return '<select onchange="updSOSDisp(this,\''+m.tipo+'\',\''+i+'\')" style="font-size:11px;padding:2px 4px;border:1px solid #999;border-radius:3px;background:#fff;margin-left:4px">'+ _sopts +'</select>';
+          })()
         + '<div style="background:#333;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:bold;letter-spacing:1px">SOS</div>'
         + '<div style="font-size:12px;color:#555;font-style:italic">Solo si hay necesidad</div>'
         + '</div></td>';
@@ -891,6 +900,16 @@ function quitarSOS(btn){
     tr.appendChild(td);
   }
   tr.dataset.sos='0';
+}
+function updSOSDisp(sel, tipo, idx){
+  var val=parseFloat(sel.value);
+  var disp=document.getElementById('sos-disp-'+idx);
+  if(!disp)return;
+  if(tipo==='gotas'){var g='';for(var i=0;i<Math.min(Math.round(val),10);i++)g+='💧';disp.innerHTML='<div style="font-size:22px">'+g+'</div><div style="font-size:12px;font-weight:bold">'+val+' gota'+(val!==1?'s':'')+'</div>';return;}
+  if(tipo==='inhalador'){var p='';for(var i=0;i<Math.min(Math.round(val),6);i++)p+='💨';disp.innerHTML='<div style="font-size:22px">'+p+'</div><div style="font-size:12px;font-weight:bold">'+val+' puff'+(val>1?'s':'')+'</div>';return;}
+  if(tipo==='jarabe'){disp.innerHTML='<div style="font-size:26px">🥄</div><div style="font-size:12px;font-weight:bold">'+val+' ml</div>';return;}
+  var pills='';for(var i=0;i<Math.min(Math.round(val),6);i++)pills+='⬤ ';
+  disp.innerHTML='<div style="font-size:22px;color:#555">'+pills.trim()+'</div><div style="font-size:12px;font-weight:bold">'+(val===0.75?'¾':val===0.5?'½':val===0.25?'¼':val)+' pastilla'+(val>1?'s':'')+'</div>';
 }
 function buildOpts(tipo,current){
   var opts=tipo==='gotas'
