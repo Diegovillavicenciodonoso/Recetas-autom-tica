@@ -64,9 +64,9 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
   </div>
   <div class="drop-zone" id="dropZone">
     <span class="drop-icon">📄</span>
-    <p><strong>Arrastra el PDF de la receta aqu&iacute;</strong><br>o haz clic para seleccionarlo</p>
+    <p><strong>Arrastra el PDF de la receta aqu&iacute;</strong><br>o haz clic para seleccionarlo<br><span style="font-size:12px;color:#888">Puedes subir varias recetas del mismo paciente a la vez</span></p>
     <button class="btn-sel" onclick="event.stopPropagation();document.getElementById('fi').click()">Seleccionar PDF</button>
-    <input type="file" id="fi" accept=".pdf,application/pdf">
+    <input type="file" id="fi" accept=".pdf,application/pdf" multiple>
   </div>
   <div class="file-bar" id="fileBar">
     <span>📋</span>
@@ -218,7 +218,7 @@ async function generarDirecto(file){
   }
 }
 
-var selFile=null, genHTML=null;
+var selFiles=[], genHTML=null;
 var dz=document.getElementById('dropZone'),fi=document.getElementById('fi'),
     fb=document.getElementById('fileBar'),bGen=document.getElementById('btnGen'),
     stL=document.getElementById('stLoad'),stE=document.getElementById('stErr'),
@@ -228,14 +228,19 @@ dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('
 dz.addEventListener('dragleave',function(){dz.classList.remove('drag-over');});
 dz.addEventListener('drop',function(e){
   e.preventDefault();dz.classList.remove('drag-over');
-  var f=e.dataTransfer.files[0];
-  if(f&&f.type==='application/pdf')setFile(f);else showErr('Selecciona un PDF válido.');
+  var fs=Array.prototype.filter.call(e.dataTransfer.files,function(f){return f.type==='application/pdf';});
+  if(fs.length)setFiles(fs);else showErr('Selecciona un PDF válido.');
 });
 dz.addEventListener('click',function(e){if(!e.target.classList.contains('btn-sel'))fi.click();});
-fi.addEventListener('change',function(){if(fi.files[0])setFile(fi.files[0]);});
+fi.addEventListener('change',function(){if(fi.files.length)setFiles(Array.prototype.slice.call(fi.files));});
 
-function setFile(f){selFile=f;dz.style.display='none';fb.style.display='flex';document.getElementById('fileName').textContent=f.name;document.getElementById('fileSize').textContent=(f.size/1024).toFixed(0)+' KB';bGen.disabled=false;stE.style.display='none';res.classList.remove('visible');}
-function resetFile(){selFile=null;fi.value='';dz.style.display='block';fb.style.display='none';bGen.disabled=true;}
+function setFiles(fs){selFiles=fs;dz.style.display='none';fb.style.display='flex';
+  document.getElementById('fileName').textContent=fs.length===1?fs[0].name:fs.length+' recetas: '+fs.map(function(f){return f.name;}).join(', ');
+  var tot=fs.reduce(function(s,f){return s+f.size;},0);
+  document.getElementById('fileSize').textContent=(tot/1024).toFixed(0)+' KB';
+  bGen.disabled=false;stE.style.display='none';res.classList.remove('visible');}
+function setFile(f){setFiles([f]);}
+function resetFile(){selFiles=[];fi.value='';dz.style.display='block';fb.style.display='none';bGen.disabled=true;}
 function resetAll(){resetFile();genHTML=null;stE.style.display='none';res.classList.remove('visible');}
 function showErr(msg){stL.style.display='none';stE.style.display='block';stE.textContent=msg;}
 
@@ -541,17 +546,34 @@ function parsearReceta(lines){
 
 // ── Generar ───────────────────────────────────────────────────
 async function generar(){
-  if(!selFile)return;
+  if(!selFiles.length)return;
   bGen.disabled=true;stE.style.display='none';res.classList.remove('visible');
   stL.style.display='flex';document.getElementById('stTxt').textContent='Leyendo PDF...';
-  var lines;
-  try{lines=await extractWords(selFile);}
-  catch(e){showErr('Error al leer el PDF: '+e.message);bGen.disabled=false;return;}
-  document.getElementById('stTxt').textContent='Procesando receta...';
-  var datos;
-  try{datos=parsearReceta(lines);}
+  var datos=null;
+  try{
+    for(var fi_=0;fi_<selFiles.length;fi_++){
+      document.getElementById('stTxt').textContent='Procesando receta '+(fi_+1)+' de '+selFiles.length+'...';
+      var lines=await extractWords(selFiles[fi_]);
+      var d=parsearReceta(lines);
+      if(!datos){ datos=d; }
+      else {
+        // Fusionar medicamentos evitando duplicados exactos (mismo nombre y dosis)
+        d.medicamentos.forEach(function(m){
+          var dup=datos.medicamentos.some(function(x){return x.nombre===m.nombre&&x.dosis===m.dosis;});
+          if(!dup) datos.medicamentos.push(m);
+        });
+        datos.warnings=datos.warnings.concat(d.warnings);
+        // Vencimiento: usar la fecha de creación más antigua
+        if(d.paciente.fechaCreacion&&datos.paciente.fechaCreacion){
+          var pa=datos.paciente.fechaCreacion.split('-'),pb=d.paciente.fechaCreacion.split('-');
+          var da=new Date(pa[2],pa[1]-1,pa[0]),db=new Date(pb[2],pb[1]-1,pb[0]);
+          if(db<da)datos.paciente.fechaCreacion=d.paciente.fechaCreacion;
+        }
+      }
+    }
+  }
   catch(e){showErr('Error al procesar: '+e.message);bGen.disabled=false;return;}
-  if(!datos.medicamentos.length){showErr('No se encontraron medicamentos.');bGen.disabled=false;return;}
+  if(!datos||!datos.medicamentos.length){showErr('No se encontraron medicamentos.');bGen.disabled=false;return;}
   genHTML=buildHTML(datos);
   stL.style.display='none';
   document.getElementById('badgeName').textContent=datos.paciente.nombreSocial||'Paciente';
@@ -706,40 +728,27 @@ function calcVencimiento(fechaStr, meds){
   }catch(e){ return 'No disponible'; }
 }
 
-function buildHTML(data) {
-  var p = data.paciente || {}, meds = data.medicamentos || [];
-  var C = CENTROS[data.centro] || CENTROS.fresia;
-  var tieneOnce = meds.some(function(m) { return parsObs(m.obs).tieneOnce; });
-  var horas = tieneOnce
-    ? [{k:'des',l:'🌅 DESAYUNO'},{k:'alm',l:'🍽️ ALMUERZO'},{k:'once',l:'☕ ONCE'},{k:'cen',l:'🌙 CENA'}]
-    : [{k:'des',l:'🌅 DESAYUNO'},{k:'alm',l:'🍽️ ALMUERZO'},{k:'cen',l:'🌙 CENA'}];
+function makeCell(count, tipo) {
+  var bg = count > 0 ? '#e0e0e0' : '#fff';
+  var opts = tipo === 'gotas'
+    ? (function(){var a=[];for(var n=0;n<=30;n++)a.push({v:n,l:n===0?'0 gotas':n+(n===1?' gota':' gotas')});return a;})().concat([{v:'SOS',l:'🔴 SOS'}])
+    : tipo === 'inhalador'
+    ? [0,1,2,3,4].map(function(n){return{v:n,l:n===0?'0 puffs':n+(n===1?' puff':' puffs')};}).concat([{v:'SOS',l:'🔴 SOS'}])
+    : tipo === 'jarabe'
+    ? [0,2.5,5,7.5,10,15,20,25,30].map(function(n){return{v:n,l:n===0?'Ninguna':n+' ml'};}).concat([{v:'SOS',l:'🔴 SOS'}])
+    : [{v:0,l:'Ninguna'},{v:0.25,l:'¼ past.'},{v:0.5,l:'½ past.'},{v:0.75,l:'¾ past.'},{v:1,l:'1 pastilla'},{v:2,l:'2 pastillas'},{v:3,l:'3 pastillas'},{v:4,l:'4 pastillas'},{v:5,l:'5 pastillas'},{v:6,l:'6 pastillas'},{v:'SOS',l:'🔴 SOS'}];
+  var selOpts = opts.map(function(o){
+    var sel = (Math.abs(o.v - count) < 0.001) ? ' selected' : '';
+    return '<option value="' + o.v + '"' + sel + '>' + o.l + '</option>';
+  }).join('');
+  var cls = count === 0 ? 'dose-cell empty-cell' : 'dose-cell';
+  return '<td class="' + cls + '" style="border:1.5px solid #888;padding:6px 4px;text-align:center;vertical-align:middle;background:' + bg + '">'
+    + '<div class="pill-display">' + dosisHTML(count, tipo) + '</div>'
+    + '<select class="qty-select" data-tipo="' + tipo + '" onchange="updCell(this)" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:110px">'
+    + selOpts + '</select></td>';
+}
 
-  function makeCell(count, tipo) {
-    var bg = count > 0 ? '#e0e0e0' : '#fff';
-    var opts = tipo === 'gotas'
-      ? [0,1,2,3,4,5,6].map(function(n){return{v:n,l:n===0?'0 gotas':n+(n===1?' gota':' gotas')};}).concat([{v:'SOS',l:'🔴 SOS'}])
-      : tipo === 'inhalador'
-      ? [0,1,2,3,4].map(function(n){return{v:n,l:n===0?'0 puffs':n+(n===1?' puff':' puffs')};}).concat([{v:'SOS',l:'🔴 SOS'}])
-      : tipo === 'jarabe'
-      ? [0,2.5,5,7.5,10,15,20,25,30].map(function(n){return{v:n,l:n===0?'Ninguna':n+' ml'};}).concat([{v:'SOS',l:'🔴 SOS'}])
-      : [{v:0,l:'Ninguna'},{v:0.25,l:'¼ past.'},{v:0.5,l:'½ past.'},{v:0.75,l:'¾ past.'},{v:1,l:'1 pastilla'},{v:2,l:'2 pastillas'},{v:3,l:'3 pastillas'},{v:4,l:'4 pastillas'},{v:5,l:'5 pastillas'},{v:6,l:'6 pastillas'},{v:'SOS',l:'🔴 SOS'}];
-    var selOpts = opts.map(function(o){
-      var sel = (Math.abs(o.v - count) < 0.001) ? ' selected' : '';
-      return '<option value="' + o.v + '"' + sel + '>' + o.l + '</option>';
-    }).join('');
-    var cls = count === 0 ? 'dose-cell empty-cell' : 'dose-cell';
-    return '<td class="' + cls + '" style="border:1.5px solid #888;padding:6px 4px;text-align:center;vertical-align:middle;background:' + bg + '">'
-      + '<div class="pill-display">' + dosisHTML(count, tipo) + '</div>'
-      + '<select class="qty-select" data-tipo="' + tipo + '" onchange="updCell(this)" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:110px">'
-      + selOpts + '</select></td>';
-  }
-
-  var colW = tieneOnce ? '14%' : '18%';
-  var ths = '<th style="background:#222;color:#fff;padding:9px 10px;font-size:14px;text-align:left;width:28%">MEDICAMENTO</th>'
-    + '<th style="background:#222;color:#fff;padding:9px;font-size:14px;width:10%">DOSIS</th>'
-    + horas.map(function(h){return'<th style="background:#111;color:#fff;padding:9px;font-size:13px;width:'+colW+'">'+h.l+'</th>';}).join('');
-
-  var rows = meds.map(function(m, i) {
+function buildMedRow(m, i, horas) {
     var hh = parsObs(m.obs), bg = i % 2 === 0 ? '#f0f0f0' : '#fff';
     var nombreTd = '<td style="border:1.5px solid #888;padding:9px 10px;background:' + bg + ';word-break:keep-all;vertical-align:middle">'
       + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">'
@@ -759,7 +768,7 @@ function buildHTML(data) {
         + '<div id="sos-disp-'+i+'">' + sosDosis + '</div>'
         + (function(){
             var _opts=[{v:0.25,l:'¼'},{v:0.5,l:'½'},{v:0.75,l:'¾'},{v:1,l:'1'},{v:2,l:'2'},{v:3,l:'3'},{v:4,l:'4'},{v:5,l:'5'},{v:6,l:'6'}];
-            if(m.tipo==='gotas') _opts=[1,2,3,4,5,6,7,8,9,10].map(function(n){return{v:n,l:n};});
+            if(m.tipo==='gotas'){_opts=[];for(var _g=1;_g<=30;_g++)_opts.push({v:_g,l:_g});}
             if(m.tipo==='inhalador') _opts=[1,2,3,4].map(function(n){return{v:n,l:n};});
             if(m.tipo==='jarabe') _opts=[2.5,5,7.5,10,15,20,25,30].map(function(n){return{v:n,l:n+' ml'};});
             var _sopts=_opts.map(function(o){return'<option value="'+o.v+'"'+(Math.abs(o.v-cant)<0.001?' selected':'')+'>'+o.l+'</option>';}).join('');
@@ -768,7 +777,7 @@ function buildHTML(data) {
         + '<div style="background:#333;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:bold;letter-spacing:1px">SOS</div>'
         + '<div style="font-size:12px;color:#555;font-style:italic">Solo si hay necesidad</div>'
         + '</div></td>';
-      return '<tr data-idx="'+i+'">' + nombreTd + dosisTd + sosTd + '</tr>';
+      return '<tr data-idx="'+i+'" data-tipo="'+m.tipo+'" data-obs="'+m.obs+'" data-cant="'+cant+'" data-sos="1">' + nombreTd + dosisTd + sosTd + '</tr>';
     }
     // INSULINA: mostrar jeringa en casilla desayuno (AM) y cena (PM)
     if(m.tipo==='insulina'){
@@ -799,7 +808,24 @@ function buildHTML(data) {
     return '<tr data-idx="'+i+'" data-tipo="'+m.tipo+'" data-obs="'+m.obs+'" data-sos="0">' + nombreTd + dosisTd
       + horas.map(function(hr){return makeCell(hh[hr.k]||0, m.tipo);}).join('')
       + '</tr>';
-  }).join('');
+}
+
+function buildHTML(data) {
+  var p = data.paciente || {}, meds = data.medicamentos || [];
+  var C = CENTROS[data.centro] || CENTROS.fresia;
+  var tieneOnce = meds.some(function(m) { return parsObs(m.obs).tieneOnce; });
+  var horas = tieneOnce
+    ? [{k:'des',l:'🌅 DESAYUNO'},{k:'alm',l:'🍽️ ALMUERZO'},{k:'once',l:'☕ ONCE'},{k:'cen',l:'🌙 CENA'}]
+    : [{k:'des',l:'🌅 DESAYUNO'},{k:'alm',l:'🍽️ ALMUERZO'},{k:'cen',l:'🌙 CENA'}];
+
+
+
+  var colW = tieneOnce ? '14%' : '18%';
+  var ths = '<th style="background:#222;color:#fff;padding:9px 10px;font-size:14px;text-align:left;width:28%">MEDICAMENTO</th>'
+    + '<th style="background:#222;color:#fff;padding:9px;font-size:14px;width:10%">DOSIS</th>'
+    + horas.map(function(h){return'<th style="background:#111;color:#fff;padding:9px;font-size:13px;width:'+colW+'">'+h.l+'</th>';}).join('');
+
+  var rows = meds.map(function(m, i){ return buildMedRow(m, i, horas); }).join('');
 
   // Script incrustado en el HTML de salida
   var scriptContent = `
@@ -944,6 +970,68 @@ function quitarSOS(btn){
   }
   tr.dataset.sos='0';
 }
+var _manualIdx=1000;
+function agregarMedicamento(){
+  var tbody=document.querySelector('#tabla-print tbody');
+  if(!tbody)return;
+  var nCols=document.querySelectorAll('#tabla-print thead th').length-2;
+  var idx=_manualIdx++;
+  var tr=document.createElement('tr');
+  tr.dataset.idx=idx;
+  tr.dataset.tipo='pastilla';
+  tr.dataset.obs='0-0-0';
+  tr.dataset.sos='0';
+  // Celda nombre: editable + selector de tipo
+  var tdNombre=document.createElement('td');
+  tdNombre.style.cssText='border:1.5px solid #888;padding:9px 10px;background:#fffbe6;vertical-align:middle';
+  tdNombre.innerHTML='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">'
+    +'<div style="flex:1">'
+    +'<div class="med-nombre-txt" contenteditable="true" style="font-size:17px;font-weight:bold;min-width:80px;outline:none;border-bottom:1px dashed #aaa" data-placeholder="NOMBRE">NUEVO MEDICAMENTO</div>'
+    +'<div contenteditable="true" style="font-size:11px;color:#444;font-style:italic;margin-top:2px;outline:none;border-bottom:1px dashed #ccc">Para qué sirve (opcional)</div>'
+    +'<select class="no-print" onchange="cambiarTipoManual(this)" style="font-size:10px;margin-top:4px;padding:1px 3px;border:1px solid #bbb;border-radius:3px">'
+    +'<option value="pastilla" selected>💊 Pastillas</option>'
+    +'<option value="gotas">💧 Gotas</option>'
+    +'<option value="jarabe">🥄 Jarabe</option>'
+    +'<option value="inhalador">💨 Inhalador</option>'
+    +'</select>'
+    +'</div>'
+    +'<button class="no-print" onclick="eliminarFila(this)" title="Eliminar medicamento" style="flex-shrink:0;background:none;border:1px solid #ccc;border-radius:4px;padding:2px 6px;font-size:12px;color:#888;cursor:pointer;line-height:1">✕</button>'
+    +'</div>';
+  tr.appendChild(tdNombre);
+  // Celda dosis: editable
+  var tdDosis=document.createElement('td');
+  tdDosis.style.cssText='border:1.5px solid #888;padding:9px 4px;text-align:center;background:#fffbe6;font-weight:bold;font-size:14px;vertical-align:middle';
+  tdDosis.contentEditable='true';
+  tdDosis.style.outline='none';
+  tdDosis.textContent='mg';
+  tr.appendChild(tdDosis);
+  // Celdas de horario
+  for(var i=0;i<nCols;i++){
+    var td=document.createElement('td');
+    td.className='dose-cell empty-cell';
+    td.style.cssText='border:1.5px solid #888;padding:6px 4px;background:#fff;text-align:center;vertical-align:middle';
+    td.innerHTML='<div class="pill-display"></div>'
+      +'<select class="qty-select" data-tipo="pastilla" onchange="updCell(this)" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:110px">'+buildOpts('pastilla',0)+'</select>';
+    tr.appendChild(td);
+  }
+  tbody.appendChild(tr);
+  tr.querySelector('.med-nombre-txt').focus();
+}
+function cambiarTipoManual(sel){
+  var tr=sel.closest('tr');
+  var tipo=sel.value;
+  tr.dataset.tipo=tipo;
+  tr.querySelectorAll('td.dose-cell').forEach(function(td){
+    var qty=td.querySelector('.qty-select');
+    if(qty){
+      qty.dataset.tipo=tipo;
+      qty.innerHTML=buildOpts(tipo,0);
+    }
+    td.querySelector('.pill-display').innerHTML='';
+    td.classList.add('empty-cell');
+    td.style.background='#fff';
+  });
+}
 function updSOSDisp(sel, tipo, idx){
   var val=parseFloat(sel.value);
   var disp=document.getElementById('sos-disp-'+idx);
@@ -956,7 +1044,7 @@ function updSOSDisp(sel, tipo, idx){
 }
 function buildOpts(tipo,current){
   var opts=tipo==='gotas'
-    ?[0,1,2,3,4,5,6].map(function(n){return{v:n,l:n===0?'0 gotas':n+' gota'+(n!==1?'s':'')};}).concat([{v:'SOS',l:'🔴 SOS'}])
+    ?(function(){var a=[];for(var n=0;n<=30;n++)a.push({v:n,l:n===0?'0 gotas':n+' gota'+(n!==1?'s':'')});return a;})().concat([{v:'SOS',l:'🔴 SOS'}])
     :tipo==='inhalador'
     ?[0,1,2,3,4].map(function(n){return{v:n,l:n===0?'0 puffs':n+' puff'+(n>1?'s':'')};}).concat([{v:'SOS',l:'🔴 SOS'}])
     :tipo==='jarabe'
@@ -989,7 +1077,44 @@ function revertirEliminacion(){
 }
 `.trim();
 
+  var mergeRecetaCode = [
+    'var _dz2=document.getElementById("dz2"),_fi2=document.getElementById("fi2");',
+    'if(_dz2){',
+    '  _dz2.addEventListener("dragover",function(e){e.preventDefault();_dz2.style.background="#eef5ee";});',
+    '  _dz2.addEventListener("dragleave",function(){_dz2.style.background="#f8faf8";});',
+    '  _dz2.addEventListener("drop",function(e){e.preventDefault();_dz2.style.background="#f8faf8";',
+    '    var fs=Array.prototype.filter.call(e.dataTransfer.files,function(f){return f.type==="application/pdf";});',
+    '    if(fs.length)agregarRecetas(fs);',
+    '  });',
+    '  _dz2.addEventListener("click",function(){_fi2.click();});',
+    '  _fi2.addEventListener("change",function(){if(_fi2.files.length)agregarRecetas(Array.prototype.slice.call(_fi2.files));_fi2.value="";});',
+    '}',
+    'async function agregarRecetas(files){',
+    '  if(!window.pdfjsLib){alert("Se necesita conexi\\u00f3n a internet para leer el PDF.");return;}',
+    '  _dz2.innerHTML="\\u23f3 Procesando receta...";',
+    '  try{',
+    '    var nombresExistentes=Array.prototype.map.call(document.querySelectorAll("#tabla-print .med-nombre-txt"),function(el){return el.textContent.trim();});',
+    '    var agregados=0,duplicados=0;',
+    '    for(var fi_=0;fi_<files.length;fi_++){',
+    '      var lines=await extractWords(files[fi_]);',
+    '      var datos=parsearReceta(lines);',
+    '      var tbody=document.querySelector("#tabla-print tbody");',
+    '      datos.medicamentos.forEach(function(m){',
+    '        if(nombresExistentes.indexOf(m.nombre)!==-1){duplicados++;return;}',
+    '        tbody.insertAdjacentHTML("beforeend",buildMedRow(m,_manualIdx++,horasCols));',
+    '        nombresExistentes.push(m.nombre);',
+    '        agregados++;',
+    '      });',
+    '    }',
+    '    _dz2.innerHTML="\\u2705 "+agregados+" medicamento(s) agregado(s)"+(duplicados?" \\u00b7 "+duplicados+" duplicado(s) omitido(s)":"")+"<br><span style=\\"font-size:11px;color:#888\\">Puedes arrastrar otra receta aqu\\u00ed</span>";',
+    '  }catch(err){',
+    '    _dz2.innerHTML="\\u26a0\\ufe0f Error al leer la receta: "+err.message+"<br><span style=\\"font-size:11px\\">Intenta de nuevo</span>";',
+    '  }',
+    '}'
+  ].join('\n');
+
   return '<!DOCTYPE html>\n<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">\n'
+    + '<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"><\/script>\n'
     + '<title>Medicamentos - ' + (p.nombre||'Paciente') + '</title>\n'
     + '<style>\n'
     + '@media print{\n'
@@ -998,6 +1123,8 @@ function revertirEliminacion(){
     + '  select{display:none!important}\n'
     + '  .empty-cell{background:white!important;border-color:#ccc!important}\n'
     + '  .empty-cell .pill-display{display:none!important}\n'
+    + '  [contenteditable]{border-bottom:none!important;outline:none!important}\n'
+    + '  td[style*="fffbe6"]{background:#fff!important}\n'
     + '}\n'
     + '*{box-sizing:border-box;margin:0;padding:0}\n'
     + 'body{font-family:Arial,sans-serif;background:#fff;color:#111;padding:16px;max-width:960px;margin:0 auto}\n'
@@ -1017,9 +1144,22 @@ function revertirEliminacion(){
   + '<div style="text-align:center;border-top:2px solid #555;border-bottom:2px solid #555;padding:5px 0;margin-bottom:12px;font-size:14px;font-weight:bold">Tome sus medicamentos todos los días a la misma hora</div>\n'
     + '<div id="undo-bar" class="no-print" style="display:none;align-items:center;gap:10px;background:#333;color:#fff;padding:8px 14px;border-radius:8px;margin-bottom:10px;font-size:13px"><span>&#128465; Eliminado: <strong class="undo-name"></strong></span><button onclick="revertirEliminacion()" style="margin-left:auto;padding:4px 14px;background:#fff;color:#333;border:none;border-radius:5px;font-weight:bold;cursor:pointer">&#8617; Deshacer</button></div>\n'
     + '<table id="tabla-print"><thead><tr>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table>\n'
+    + '<button class="no-print" onclick="agregarMedicamento()" style="display:block;margin:10px 0;padding:7px 18px;font-size:13px;font-weight:bold;background:#fff;color:#1a3a2a;border:1.5px dashed #1a3a2a;border-radius:6px;cursor:pointer">&#10133; Agregar medicamento manual</button>\n'
     + '<div style="margin-top:12px;text-align:center;font-size:11px;color:#666;border-top:1px solid #ccc;padding-top:8px">Si tiene dudas, consulte a su médico o al personal de salud<br>' + C.nombre + ' · ' + C.servicio + ' · ' + C.depto + '</div>\n'
     + '<button class="no-print" onclick="window.print()" style="display:block;margin:12px auto;padding:9px 28px;font-size:15px;font-weight:bold;background:#1a3a2a;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Imprimir</button>\n'
-    + '<script>\n' + scriptContent + '\n<\/script></body></html>';
+    + '<div id="dz2" class="no-print" style="margin:14px 0;border:2px dashed #b5c9b5;border-radius:8px;padding:14px;text-align:center;font-size:13px;color:#4a6a4a;background:#f8faf8;cursor:pointer">&#10133; <strong>Arrastra aqu\u00ed otra receta (PDF)</strong> para agregar sus medicamentos a este horario<br><span style="font-size:11px;color:#888">o haz clic para seleccionarla</span></div>\n'
+    + '<input type="file" id="fi2" accept=".pdf,application/pdf" multiple style="display:none">\n'
+    + '<script>\n' + scriptContent + '\n'
+    + 'var horasCols=' + JSON.stringify(horas) + ';\n'
+    + parsObs.toString() + '\n'
+    + dosisSOSHTML.toString() + '\n'
+    + makeCell.toString() + '\n'
+    + buildMedRow.toString() + '\n'
+    + extractWords.toString() + '\n'
+    + parsearReceta.toString() + '\n'
+    + 'if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";}\n'
+    + mergeRecetaCode + '\n'
+    + '<\/script></body></html>';
 }
 </script>
 </body>
