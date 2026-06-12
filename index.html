@@ -776,6 +776,7 @@ function buildMedRow(m, i, horas) {
           })()
         + '<div style="background:#333;color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:bold;letter-spacing:1px">SOS</div>'
         + '<div style="font-size:12px;color:#555;font-style:italic">Solo si hay necesidad</div>'
+        + '<button class="no-print" onclick="quitarSOS(this)" style="padding:3px 10px;font-size:11px;border:1px solid #aaa;border-radius:4px;background:#fff;cursor:pointer">&#8629; Quitar SOS</button>'
         + '</div></td>';
       return '<tr data-idx="'+i+'" data-tipo="'+m.tipo+'" data-obs="'+m.obs+'" data-cant="'+cant+'" data-sos="1">' + nombreTd + dosisTd + sosTd + '</tr>';
     }
