@@ -65,8 +65,15 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
 </head>
 <body>
 <div class="changelog-box no-print" id="changelogBox">
-  <div class="changelog-header" onclick="var b=document.getElementById('changelogBody');b.classList.toggle('collapsed')">&#128221; Novedades &middot; Actualizaci&oacute;n 17-06-2026 <span style="font-weight:400;color:#888;font-size:10px">(clic para ocultar)</span></div>
+  <div class="changelog-header" onclick="var b=document.getElementById('changelogBody');b.classList.toggle('collapsed')">&#128221; Novedades y actualizaciones <span style="font-weight:400;color:#888;font-size:10px">(clic para ocultar)</span></div>
   <div class="changelog-body" id="changelogBody">
+    <div style="font-weight:700;color:#1a5276;font-size:12px;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 23-06-2026</div>
+    <ul>
+      <li><strong>Pr&oacute;ximo control:</strong> nuevo bot&oacute;n bajo el horario para indicar el pr&oacute;ximo control. Incluye Cardiovascular (m&eacute;dico, enfermera y nutricionista), Salud mental, Sala IRA/ERA y Especialista (con lista de especialidades: medicina interna, pediatr&iacute;a, neurolog&iacute;a infantil, ginecolog&iacute;a y dermatolog&iacute;a). Cada control permite indicar mes, a&ntilde;o y un comentario.</li>
+      <li><strong>Aviso de verificaci&oacute;n:</strong> recordatorio en pantalla (no se imprime) de revisar manualmente que los medicamentos coincidan con la receta original.</li>
+      <li><strong>Jeringa de insulina corregida:</strong> ahora la numeraci&oacute;n parte desde el lado de la aguja, como en una jeringa real.</li>
+    </ul>
+    <div style="font-weight:700;color:#1a5276;font-size:12px;margin:10px 0 4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 17-06-2026</div>
     <ul>
       <li><strong>Jeringa esquem&aacute;tica para insulinas NPH:</strong> dibujo en blanco y negro con escala de 0 a 60 UI marcada cada 2 unidades. La dosis indicada se rellena autom&aacute;ticamente y se muestra en una fila bajo cada insulina (desayuno AM y cena PM por separado).</li>
       <li><strong>Insulinas al final:</strong> ahora se ordenan autom&aacute;ticamente al final de la receta para dar espacio a las jeringas.</li>
@@ -977,6 +984,98 @@ function dosisHTML(count,tipo){
   var lbl=count===1?'1 pastilla':count===0.75?'3/4 pastilla':count===0.5?'1/2 pastilla':count===0.25?'1/4 pastilla':count+' pastillas';
   return out.join('')+'<div style="font-size:12px;font-weight:bold;margin-top:2px">'+lbl+'</div>';
 }
+var _controlIdx=0;
+var _MESES_=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+var _ESPECIALIDADES_=['Medicina Interna','Pediatr\u00eda','Neurolog\u00eda Infantil','Ginecolog\u00eda','Dermatolog\u00eda'];
+function toggleProxControl(){
+  var m=document.getElementById('proxControlMenu');
+  if(m) m.style.display=m.style.display==='none'?'block':'none';
+}
+function _mesOpts(){
+  var o='<option value="">Mes</option>';
+  for(var i=0;i<12;i++) o+='<option value="'+_MESES_[i]+'">'+_MESES_[i]+'</option>';
+  return o;
+}
+function _anioOpts(){
+  var y=new Date().getFullYear();
+  var o='<option value="">A\u00f1o</option>';
+  for(var i=0;i<3;i++) o+='<option value="'+(y+i)+'">'+(y+i)+'</option>';
+  return o;
+}
+function _filaControl(prof){
+  // prof: nombre del profesional a mostrar
+  return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;padding:6px 8px;background:#fff;border:1px solid #e0e8ee;border-radius:6px">'
+    +'<span style="font-weight:bold;font-size:13px;min-width:110px;color:#1a5276">'+prof+'</span>'
+    +'<select class="ctrl-mes" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_mesOpts()+'</select>'
+    +'<select class="ctrl-anio" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_anioOpts()+'</select>'
+    +'<input class="ctrl-coment" type="text" placeholder="Comentario (opcional)" style="flex:1;min-width:140px;font-size:12px;padding:3px 6px;border:1px solid #bbb;border-radius:4px">'
+    +'</div>';
+}
+function eliminarControl(btn){var c=btn.closest('.control-card');if(c)c.remove();}
+function addControlCardio(){agregarControl('cardiovascular');}
+function addControlMental(){agregarControl('mental');}
+function addControlIraera(){agregarControl('iraera');}
+function addControlEsp(){agregarControl('especialista');}
+function agregarControl(tipo){
+  var cont=document.getElementById('controlesContainer');
+  if(!cont)return;
+  var idx=_controlIdx++;
+  var titulo='', filas='';
+  if(tipo==='cardiovascular'){
+    titulo='\u2764\ufe0f Pr\u00f3ximo control cardiovascular';
+    filas=_filaControl('M\u00e9dico')+_filaControl('Enfermera')+_filaControl('Nutricionista');
+  } else if(tipo==='mental'){
+    titulo='\uD83E\uDDE0 Pr\u00f3ximo control salud mental';
+    filas=_filaControl('M\u00e9dico');
+  } else if(tipo==='iraera'){
+    titulo='\uD83E\uDEC1 Pr\u00f3ximo control Sala IRA/ERA';
+    filas=_filaControl('M\u00e9dico');
+  } else if(tipo==='especialista'){
+    titulo='\uD83E\uDE7A Pr\u00f3ximo control con especialista';
+    var espOpts='<option value="">Selecciona especialidad</option>';
+    for(var i=0;i<_ESPECIALIDADES_.length;i++) espOpts+='<option value="'+_ESPECIALIDADES_[i]+'">'+_ESPECIALIDADES_[i]+'</option>';
+    filas='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;padding:6px 8px;background:#fff;border:1px solid #e0e8ee;border-radius:6px">'
+      +'<select class="ctrl-esp" style="font-weight:bold;font-size:13px;padding:3px 6px;border:1px solid #1a5276;border-radius:4px;color:#1a5276">'+espOpts+'</select>'
+      +'<select class="ctrl-mes" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_mesOpts()+'</select>'
+      +'<select class="ctrl-anio" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_anioOpts()+'</select>'
+      +'<input class="ctrl-coment" type="text" placeholder="Comentario (opcional)" style="flex:1;min-width:140px;font-size:12px;padding:3px 6px;border:1px solid #bbb;border-radius:4px">'
+      +'</div>';
+  }
+  var div=document.createElement('div');
+  div.className='control-card';
+  div.setAttribute('data-control',idx);
+  div.style.cssText='margin-top:10px;padding:10px 12px;border:1.5px solid #1a5276;border-radius:8px;background:#f9fcff';
+  div.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    +'<span style="font-weight:bold;font-size:14px;color:#1a5276">'+titulo+'</span>'
+    +'<button class="no-print" onclick="eliminarControl(this)" style="background:none;border:1px solid #ccc;border-radius:4px;padding:2px 8px;font-size:12px;color:#888;cursor:pointer">&#10005;</button>'
+    +'</div>'+filas;
+  cont.appendChild(div);
+}
+// ── Mostrar valores de los controles al imprimir ──
+function _prepararImpresionControles(){
+  var cards=document.querySelectorAll('.control-card');
+  Array.prototype.forEach.call(cards,function(card){
+    var campos=card.querySelectorAll('select,input');
+    Array.prototype.forEach.call(campos,function(el){
+      // Eliminar span previo si existe
+      var prev=el.nextSibling;
+      if(prev&&prev.className&&prev.className.indexOf('print-val')!==-1){ prev.parentNode.removeChild(prev); }
+      var val='';
+      if(el.tagName==='SELECT'){ val=el.options[el.selectedIndex]?el.options[el.selectedIndex].text:''; if(el.value==='')val=''; }
+      else { val=el.value||''; }
+      var span=document.createElement('span');
+      span.className='print-val'+(val.trim()===''?' print-val-empty':'');
+      span.textContent=val;
+      el.parentNode.insertBefore(span, el.nextSibling);
+    });
+  });
+}
+function _limpiarImpresionControles(){
+  var spans=document.querySelectorAll('.control-card .print-val');
+  Array.prototype.forEach.call(spans,function(s){ s.parentNode.removeChild(s); });
+}
+window.addEventListener('beforeprint', _prepararImpresionControles);
+window.addEventListener('afterprint', _limpiarImpresionControles);
 function toggleCL(el){
   var body=el.parentNode.children[1];
   if(body) body.classList.toggle('cl-hidden');
@@ -1337,12 +1436,27 @@ function revertirEliminacion(){
     + '.cl-body li{margin-bottom:5px}\n'
     + '.firma-autor{position:fixed;bottom:8px;right:12px;font-size:10px;color:#bbb;font-style:italic;z-index:9999}\n'
     + '@media print{.changelog-box,.firma-autor{display:none!important}}\n'
+    + '.control-card select,.control-card input{font-family:inherit}\n'
+    + '@media print{'
+    + '  .proximo-control-wrap > button,#proxControlMenu{display:none!important}'
+    + '  .control-card button{display:none!important}'
+    + '  .control-card{break-inside:avoid;background:#fff!important;border:1.5px solid #333!important}'
+    + '  .control-card select,.control-card input{display:none!important}  .control-card .print-val{display:inline!important;font-weight:bold;color:#000;margin-right:8px}  .control-card .print-val-empty{display:none!important}'
+    + ''
+    + ''
+    + '}\n'
     + '@media(max-width:720px){.changelog-box{position:static;max-width:100%;margin-bottom:14px}.firma-autor{position:static;text-align:center;margin-top:10px}}\n'
     + 'body{font-family:Arial,sans-serif;background:#fff;color:#111;padding:16px;max-width:960px;margin:0 auto}\n'
     + 'table{width:100%;border-collapse:collapse;table-layout:fixed}\n'
     + 'th,td{word-break:keep-all;overflow-wrap:break-word}\n'
     + '</style></head><body>\n'
-    + '<div class="changelog-box no-print"><div class="cl-header" onclick="toggleCL(this)">&#128221; Novedades &middot; Actualizaci&oacute;n 17-06-2026 <span style="font-weight:400;color:#888;font-size:10px">(ocultar)</span></div><div class="cl-body"><ul>'
+    + '<div class="changelog-box no-print"><div class="cl-header" onclick="toggleCL(this)">&#128221; Novedades y actualizaciones <span style="font-weight:400;color:#888;font-size:10px">(ocultar)</span></div><div class="cl-body">'
+    + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 23-06-2026</div><ul>'
+    + '<li><strong>Pr&oacute;ximo control:</strong> nuevo apartado para indicar el pr&oacute;ximo control (Cardiovascular, Salud mental, Sala IRA/ERA y Especialista), con mes, a&ntilde;o y comentario.</li>'
+    + '<li><strong>Aviso de verificaci&oacute;n:</strong> recordatorio de revisar que los medicamentos coincidan con la receta original.</li>'
+    + '<li><strong>Jeringa de insulina corregida:</strong> la numeraci&oacute;n parte desde el lado de la aguja.</li>'
+    + '</ul>'
+    + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 17-06-2026</div><ul>'
     + '<li><strong>Jeringa esquem&aacute;tica para insulinas NPH:</strong> escala 0-60 UI cada 2 unidades; la dosis se rellena autom&aacute;ticamente (AM y PM por separado), en una fila bajo cada insulina.</li>'
     + '<li><strong>Insulinas al final</strong> de la receta para dar espacio a las jeringas.</li>'
     + '<li><strong>Reordenar medicamentos</strong> arrastrando con el manillar &#10247;.</li>'
@@ -1350,6 +1464,7 @@ function revertirEliminacion(){
     + '<li><strong>Correcciones de lectura:</strong> jarabes con porcentaje decimal, gotas hasta 30, dosis de un solo valor seg&uacute;n frecuencia.</li>'
     + '</ul></div></div>\n'
     + '<div class="firma-autor no-print">Dise&ntilde;ado por Dr. Diego Villavicencio &middot; Hospital de Fresia</div>\n'
+    + '<div class="aviso-verif no-print" style="max-width:900px;margin:0 auto 14px;padding:12px 18px;background:#fff8e1;border:1.5px solid #f0c000;border-left:5px solid #f0a000;border-radius:8px;font-size:13px;color:#7a5c00;line-height:1.5"><strong>&#9888;&#65039; Verificaci&oacute;n obligatoria:</strong> Antes de entregar este horario, revise manualmente que cada medicamento, dosis y frecuencia coincida con la receta original. La lectura autom&aacute;tica puede contener errores. La responsabilidad de la verificaci&oacute;n recae en quien usa la aplicaci&oacute;n.</div>\n'
     + '<div style="display:flex;align-items:center;gap:16px;border-bottom:4px solid #222;padding-bottom:12px;margin-bottom:12px">\n'
     + '<img src="' + C.logo + '" style="width:72px;height:72px;border-radius:50%;flex-shrink:0" alt="' + C.nombre + '">\n'
     + '<div><div style="font-size:26px;font-weight:bold">MIS MEDICAMENTOS</div>\n'
@@ -1364,6 +1479,18 @@ function revertirEliminacion(){
     + '<div id="undo-bar" class="no-print" style="display:none;align-items:center;gap:10px;background:#333;color:#fff;padding:8px 14px;border-radius:8px;margin-bottom:10px;font-size:13px"><span>&#128465; Eliminado: <strong class="undo-name"></strong></span><button onclick="revertirEliminacion()" style="margin-left:auto;padding:4px 14px;background:#fff;color:#333;border:none;border-radius:5px;font-weight:bold;cursor:pointer">&#8617; Deshacer</button></div>\n'
     + '<table id="tabla-print"><thead><tr>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table>\n'
     + '<button class="no-print" onclick="agregarMedicamento()" style="display:block;margin:10px 0;padding:7px 18px;font-size:13px;font-weight:bold;background:#fff;color:#1a3a2a;border:1.5px dashed #1a3a2a;border-radius:6px;cursor:pointer">&#10133; Agregar medicamento manual</button>\n'
+    + '<div class="proximo-control-wrap" style="margin:10px 0">'
+    + '<button class="no-print" onclick="toggleProxControl()" id="btnProxControl" style="display:block;padding:7px 18px;font-size:13px;font-weight:bold;background:#fff;color:#1a5276;border:1.5px dashed #1a5276;border-radius:6px;cursor:pointer">&#128197; Pr&oacute;ximo control</button>'
+    + '<div id="proxControlMenu" class="no-print" style="display:none;margin-top:8px;padding:10px;background:#f4f8fb;border:1px solid #cfe0ec;border-radius:8px">'
+    + '<div style="font-size:12px;color:#555;margin-bottom:8px">Selecciona el tipo de control a agregar:</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px">'
+    + '<button onclick="addControlCardio()" style="padding:6px 12px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#10084;&#65039; Cardiovascular</button>'
+    + '<button onclick="addControlMental()" style="padding:6px 12px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#129504; Salud mental</button>'
+    + '<button onclick="addControlIraera()" style="padding:6px 12px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#129729; Sala IRA/ERA</button>'
+    + '<button onclick="addControlEsp()" style="padding:6px 12px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#129658; Especialista</button>'
+    + '</div></div>'
+    + '<div id="controlesContainer"></div>'
+    + '</div>\n'
     + '<div style="margin-top:12px;text-align:center;font-size:11px;color:#666;border-top:1px solid #ccc;padding-top:8px">Si tiene dudas, consulte a su médico o al personal de salud<br>' + C.nombre + ' · ' + C.servicio + ' · ' + C.depto + '</div>\n'
     + '<button class="no-print" onclick="window.print()" style="display:block;margin:12px auto;padding:9px 28px;font-size:15px;font-weight:bold;background:#1a3a2a;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨️ Imprimir</button>\n'
     + '<div id="dz2" class="no-print" style="margin:14px 0;border:2px dashed #b5c9b5;border-radius:8px;padding:14px;text-align:center;font-size:13px;color:#4a6a4a;background:#f8faf8;cursor:pointer">&#10133; <strong>Arrastra aqu\u00ed otra receta (PDF)</strong> para agregar sus medicamentos a este horario<br><span style="font-size:11px;color:#888">o haz clic para seleccionarla</span></div>\n'
