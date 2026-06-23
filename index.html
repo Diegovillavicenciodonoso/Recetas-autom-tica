@@ -70,6 +70,7 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
     <div style="font-weight:700;color:#1a5276;font-size:12px;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 23-06-2026</div>
     <ul>
       <li><strong>Pr&oacute;ximo control:</strong> nuevo bot&oacute;n bajo el horario para indicar el pr&oacute;ximo control. Incluye Cardiovascular (m&eacute;dico, enfermera y nutricionista), Salud mental, Sala IRA/ERA y Especialista (con lista de especialidades: medicina interna, pediatr&iacute;a, neurolog&iacute;a infantil, ginecolog&iacute;a y dermatolog&iacute;a). Cada control permite indicar mes, a&ntilde;o y un comentario.</li>
+      <li><strong>Riesgo CV autom&aacute;tico:</strong> en el control cardiovascular, al elegir el riesgo (bajo, moderado o alto) se generan los pr&oacute;ximos controles en rotaci&oacute;n seg&uacute;n el flujograma PSCV. Bajo: nutricionista en 6 meses y m&eacute;dico en 12. Moderado: nutricionista 6, m&eacute;dico 12, enfermera 18 (rotaci&oacute;n cada 6 meses). Alto: nutricionista 3, enfermera 6, m&eacute;dico 9 (rotaci&oacute;n cada 3 meses). Los meses son editables, las filas se reordenan solas por fecha, y se puede agregar o quitar la enfermera.</li>
       <li><strong>Aviso de verificaci&oacute;n:</strong> recordatorio en pantalla (no se imprime) de revisar manualmente que los medicamentos coincidan con la receta original.</li>
       <li><strong>Jeringa de insulina corregida:</strong> ahora la numeraci&oacute;n parte desde el lado de la aguja, como en una jeringa real.</li>
     </ul>
@@ -991,25 +992,103 @@ function toggleProxControl(){
   var m=document.getElementById('proxControlMenu');
   if(m) m.style.display=m.style.display==='none'?'block':'none';
 }
-function _mesOpts(){
+function _mesOpts(sel){
   var o='<option value="">Mes</option>';
-  for(var i=0;i<12;i++) o+='<option value="'+_MESES_[i]+'">'+_MESES_[i]+'</option>';
+  for(var i=0;i<12;i++){ var v=_MESES_[i]; o+='<option value="'+v+'"'+(sel===v?' selected':'')+'>'+v+'</option>'; }
   return o;
 }
-function _anioOpts(){
+function _anioOpts(sel){
   var y=new Date().getFullYear();
   var o='<option value="">A\u00f1o</option>';
-  for(var i=0;i<3;i++) o+='<option value="'+(y+i)+'">'+(y+i)+'</option>';
+  for(var i=0;i<4;i++){ var v=String(y+i); o+='<option value="'+v+'"'+(sel===v?' selected':'')+'>'+v+'</option>'; }
   return o;
 }
-function _filaControl(prof){
-  // prof: nombre del profesional a mostrar
-  return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;padding:6px 8px;background:#fff;border:1px solid #e0e8ee;border-radius:6px">'
+function _addMeses(n){
+  // Devuelve {mes:'Nombre', anio:'YYYY'} sumando n meses a la fecha actual
+  var d=new Date();
+  d.setMonth(d.getMonth()+n);
+  return {mes:_MESES_[d.getMonth()], anio:String(d.getFullYear())};
+}
+function _filaControl(prof, preMes, preAnio, removible){
+  // prof: nombre del profesional; preMes/preAnio: valores preseleccionados; removible: muestra botón eliminar
+  return '<div class="ctrl-fila" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;padding:6px 8px;background:#fff;border:1px solid #e0e8ee;border-radius:6px">'
     +'<span style="font-weight:bold;font-size:13px;min-width:110px;color:#1a5276">'+prof+'</span>'
-    +'<select class="ctrl-mes" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_mesOpts()+'</select>'
-    +'<select class="ctrl-anio" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_anioOpts()+'</select>'
+    +'<select class="ctrl-mes" onchange="_alEditarFecha(this)" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_mesOpts(preMes)+'</select>'
+    +'<select class="ctrl-anio" onchange="_alEditarFecha(this)" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_anioOpts(preAnio)+'</select>'
     +'<input class="ctrl-coment" type="text" placeholder="Comentario (opcional)" style="flex:1;min-width:140px;font-size:12px;padding:3px 6px;border:1px solid #bbb;border-radius:4px">'
+    +(removible?'<button class="no-print" onclick="eliminarFilaControl(this)" title="Quitar este profesional" style="background:none;border:1px solid #ccc;border-radius:4px;padding:2px 7px;font-size:11px;color:#888;cursor:pointer">&#10005;</button>':'')
     +'</div>';
+}
+function aplicarRCV(sel){
+  var rcv=sel.value;
+  var card=sel.closest('.control-card');
+  if(!card)return;
+  var cont=card.querySelector('.ctrl-cardio-filas');
+  if(!cont)return;
+  // Rotación secuencial de profesionales [profesional, meses acumulados desde hoy]
+  // Bajo: Nutri +6, Médico +12 (2 controles, enfermera opcional manual)
+  // Moderado: Nutri +6, Médico +12, Enfermera +18 (rotación cada 6 meses)
+  // Alto: Nutri +3, Enfermera +6, Médico +9 (rotación cada 3 meses)
+  var esquema;
+  if(rcv==='bajo')          esquema=[['Nutricionista',6],['M\u00e9dico/a',12]];
+  else if(rcv==='moderado') esquema=[['Nutricionista',6],['M\u00e9dico/a',12],['Enfermera/o',18]];
+  else if(rcv==='alto')     esquema=[['Nutricionista',3],['Enfermera/o',6],['M\u00e9dico/a',9]];
+  else return; // "Selecciona..." no hace nada
+  var html='';
+  for(var i=0;i<esquema.length;i++){
+    var prof=esquema[i][0], meses=esquema[i][1];
+    var f=_addMeses(meses);
+    // La enfermera siempre es removible
+    var removible=(prof==='Enfermera/o');
+    html+=_filaControl(prof, f.mes, f.anio, removible);
+  }
+  // Botón para agregar enfermera manualmente (útil sobre todo en RCV bajo)
+  html+='<button class="no-print btn-add-enf" onclick="agregarFilaEnfermera(this)" style="margin-top:4px;padding:4px 12px;font-size:11px;font-weight:bold;background:#fff;border:1px dashed #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#10133; Agregar enfermera/o</button>';
+  cont.innerHTML=html;
+  _ordenarControlesCardio(cont);
+}
+function agregarFilaEnfermera(btn){
+  var cont=btn.closest('.ctrl-cardio-filas');
+  if(!cont)return;
+  var f=_addMeses(6);
+  // Insertar la fila antes del botón
+  var div=document.createElement('div');
+  div.innerHTML=_filaControl('Enfermera/o', f.mes, f.anio, true);
+  var fila=div.firstChild;
+  cont.insertBefore(fila, btn);
+  _ordenarControlesCardio(cont);
+}
+// Ordena las filas de control por fecha (más próxima arriba)
+function _ordenarControlesCardio(cont){
+  var filas=Array.prototype.slice.call(cont.querySelectorAll('.ctrl-fila'));
+  // Estabilidad: ordena por fecha; filas sin fecha conservan su orden relativo al final
+  filas.sort(function(a,b){
+    var fa=_fechaFila(a), fb=_fechaFila(b);
+    if(fa===fb) return (filas.indexOf(a)-filas.indexOf(b));
+    return fa-fb;
+  });
+  var btnAdd=cont.querySelector('.btn-add-enf');
+  // Reinsertar cada fila en orden, justo antes del botón de agregar (o al final si no existe)
+  filas.forEach(function(f){
+    if(btnAdd) cont.insertBefore(f, btnAdd);
+    else cont.appendChild(f);
+  });
+}
+function _alEditarFecha(sel){
+  // Si el select está dentro de un contenedor cardiovascular, reordenar por fecha
+  var cont=sel.closest('.ctrl-cardio-filas');
+  if(cont) _ordenarControlesCardio(cont);
+}
+function _fechaFila(fila){
+  var ms=fila.querySelector('.ctrl-mes'), an=fila.querySelector('.ctrl-anio');
+  var mesIdx=ms?_MESES_.indexOf(ms.value):-1;
+  var anio=an&&an.value?parseInt(an.value):9999;
+  if(mesIdx<0||!an||!an.value) return 99999999; // sin fecha va al final
+  return anio*12+mesIdx;
+}
+function eliminarFilaControl(btn){
+  var f=btn.closest('.ctrl-fila');
+  if(f) f.parentNode.removeChild(f);
 }
 function eliminarControl(btn){var c=btn.closest('.control-card');if(c)c.remove();}
 function addControlCardio(){agregarControl('cardiovascular');}
@@ -1023,7 +1102,19 @@ function agregarControl(tipo){
   var titulo='', filas='';
   if(tipo==='cardiovascular'){
     titulo='\u2764\ufe0f Pr\u00f3ximo control cardiovascular';
-    filas=_filaControl('M\u00e9dico')+_filaControl('Enfermera')+_filaControl('Nutricionista');
+    filas='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:7px 9px;background:#eaf3fa;border:1px solid #cfe0ec;border-radius:6px">'
+      +'<span style="font-weight:bold;font-size:13px;color:#1a5276">Riesgo cardiovascular:</span>'
+      +'<select class="ctrl-rcv" onchange="aplicarRCV(this)" style="font-size:12px;font-weight:bold;padding:3px 8px;border:1px solid #1a5276;border-radius:4px;color:#1a5276">'
+      +'<option value="">Selecciona...</option>'
+      +'<option value="bajo">RCV Bajo</option>'
+      +'<option value="moderado">RCV Moderado</option>'
+      +'<option value="alto">RCV Alto</option>'
+      +'</select>'
+      +'<span style="font-size:11px;color:#777;font-style:italic">(rellena los meses autom&aacute;ticamente)</span>'
+      +'</div>'
+      +'<div class="ctrl-cardio-filas">'
+      +_filaControl('M\u00e9dico/a')+_filaControl('Nutricionista')+_filaControl('Enfermera/o', '', '', true)
+      +'</div>';
   } else if(tipo==='mental'){
     titulo='\uD83E\uDDE0 Pr\u00f3ximo control salud mental';
     filas=_filaControl('M\u00e9dico');
@@ -1453,6 +1544,7 @@ function revertirEliminacion(){
     + '<div class="changelog-box no-print"><div class="cl-header" onclick="toggleCL(this)">&#128221; Novedades y actualizaciones <span style="font-weight:400;color:#888;font-size:10px">(ocultar)</span></div><div class="cl-body">'
     + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 23-06-2026</div><ul>'
     + '<li><strong>Pr&oacute;ximo control:</strong> nuevo apartado para indicar el pr&oacute;ximo control (Cardiovascular, Salud mental, Sala IRA/ERA y Especialista), con mes, a&ntilde;o y comentario.</li>'
+    + '<li><strong>Riesgo CV autom&aacute;tico:</strong> en cardiovascular, al elegir el riesgo se generan los pr&oacute;ximos controles en rotaci&oacute;n seg&uacute;n el flujograma PSCV (editables, se reordenan por fecha).</li>'
     + '<li><strong>Aviso de verificaci&oacute;n:</strong> recordatorio de revisar que los medicamentos coincidan con la receta original.</li>'
     + '<li><strong>Jeringa de insulina corregida:</strong> la numeraci&oacute;n parte desde el lado de la aguja.</li>'
     + '</ul>'
