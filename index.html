@@ -70,7 +70,8 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
     <div style="font-weight:700;color:#1a5276;font-size:12px;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 23-06-2026</div>
     <ul>
       <li><strong>Pr&oacute;ximo control:</strong> nuevo bot&oacute;n bajo el horario para indicar el pr&oacute;ximo control. Incluye Cardiovascular (m&eacute;dico, enfermera y nutricionista), Salud mental, Sala IRA/ERA y Especialista (con lista de especialidades: medicina interna, pediatr&iacute;a, neurolog&iacute;a infantil, ginecolog&iacute;a y dermatolog&iacute;a). Cada control permite indicar mes, a&ntilde;o y un comentario.</li>
-      <li><strong>Riesgo CV autom&aacute;tico:</strong> en el control cardiovascular, al elegir el riesgo (bajo, moderado o alto) se generan los pr&oacute;ximos controles en rotaci&oacute;n seg&uacute;n el flujograma PSCV. Bajo: nutricionista en 6 meses y m&eacute;dico en 12. Moderado: nutricionista 6, m&eacute;dico 12, enfermera 18 (rotaci&oacute;n cada 6 meses). Alto: nutricionista 3, enfermera 6, m&eacute;dico 9 (rotaci&oacute;n cada 3 meses). Los meses son editables, las filas se reordenan solas por fecha, y se puede agregar o quitar la enfermera.</li>
+      <li><strong>Riesgo CV autom&aacute;tico:</strong> en el control cardiovascular, al elegir el riesgo (bajo, moderado o alto) se calcula autom&aacute;ticamente el pr&oacute;ximo control seg&uacute;n el flujograma PSCV (bajo y moderado: 6 meses; alto: 3 meses). El mes, el a&ntilde;o y el profesional quedan editables.</li>
+      <li><strong>Control de morbilidad:</strong> nueva opci&oacute;n para artrosis, hipotiroidismo u otras patolog&iacute;as cr&oacute;nicas, indicando que la hora se solicita en morbilidad.</li>
       <li><strong>Aviso de verificaci&oacute;n:</strong> recordatorio en pantalla (no se imprime) de revisar manualmente que los medicamentos coincidan con la receta original.</li>
       <li><strong>Jeringa de insulina corregida:</strong> ahora la numeraci&oacute;n parte desde el lado de la aguja, como en una jeringa real.</li>
     </ul>
@@ -1009,6 +1010,18 @@ function _addMeses(n){
   d.setMonth(d.getMonth()+n);
   return {mes:_MESES_[d.getMonth()], anio:String(d.getFullYear())};
 }
+function _filaControlProf(prof, preMes, preAnio){
+  // Fila con selector de profesional (para el próximo control cardiovascular)
+  var profs=['M\u00e9dico/a','Enfermera/o','Nutricionista'];
+  var opts='';
+  for(var i=0;i<profs.length;i++) opts+='<option value="'+profs[i]+'"'+(profs[i]===prof?' selected':'')+'>'+profs[i]+'</option>';
+  return '<div class="ctrl-fila" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;padding:6px 8px;background:#fff;border:1px solid #e0e8ee;border-radius:6px">'
+    +'<select class="ctrl-prof" style="font-weight:bold;font-size:13px;min-width:120px;color:#1a5276;padding:3px 5px;border:1px solid #1a5276;border-radius:4px">'+opts+'</select>'
+    +'<select class="ctrl-mes" onchange="_alEditarFecha(this)" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_mesOpts(preMes)+'</select>'
+    +'<select class="ctrl-anio" onchange="_alEditarFecha(this)" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_anioOpts(preAnio)+'</select>'
+    +'<input class="ctrl-coment" type="text" placeholder="Comentario (opcional)" style="flex:1;min-width:140px;font-size:12px;padding:3px 6px;border:1px solid #bbb;border-radius:4px">'
+    +'</div>';
+}
 function _filaControl(prof, preMes, preAnio, removible){
   // prof: nombre del profesional; preMes/preAnio: valores preseleccionados; removible: muestra botón eliminar
   return '<div class="ctrl-fila" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;padding:6px 8px;background:#fff;border:1px solid #e0e8ee;border-radius:6px">'
@@ -1029,23 +1042,17 @@ function aplicarRCV(sel){
   // Bajo: Nutri +6, Médico +12 (2 controles, enfermera opcional manual)
   // Moderado: Nutri +6, Médico +12, Enfermera +18 (rotación cada 6 meses)
   // Alto: Nutri +3, Enfermera +6, Médico +9 (rotación cada 3 meses)
-  var esquema;
-  if(rcv==='bajo')          esquema=[['Nutricionista',6],['M\u00e9dico/a',12]];
-  else if(rcv==='moderado') esquema=[['Nutricionista',6],['M\u00e9dico/a',12],['Enfermera/o',18]];
-  else if(rcv==='alto')     esquema=[['Nutricionista',3],['Enfermera/o',6],['M\u00e9dico/a',9]];
+  // Solo el PRÓXIMO control según el riesgo (primero de la rotación)
+  // Bajo: Nutricionista +6 | Moderado: Nutricionista +6 | Alto: Nutricionista +3
+  var prox;
+  if(rcv==='bajo')          prox=['Nutricionista',6];
+  else if(rcv==='moderado') prox=['Nutricionista',6];
+  else if(rcv==='alto')     prox=['Nutricionista',3];
   else return; // "Selecciona..." no hace nada
-  var html='';
-  for(var i=0;i<esquema.length;i++){
-    var prof=esquema[i][0], meses=esquema[i][1];
-    var f=_addMeses(meses);
-    // La enfermera siempre es removible
-    var removible=(prof==='Enfermera/o');
-    html+=_filaControl(prof, f.mes, f.anio, removible);
-  }
-  // Botón para agregar enfermera manualmente (útil sobre todo en RCV bajo)
-  html+='<button class="no-print btn-add-enf" onclick="agregarFilaEnfermera(this)" style="margin-top:4px;padding:4px 12px;font-size:11px;font-weight:bold;background:#fff;border:1px dashed #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#10133; Agregar enfermera/o</button>';
+  var f=_addMeses(prox[1]);
+  // Fila editable; el profesional se puede cambiar con un selector
+  var html=_filaControlProf(prox[0], f.mes, f.anio);
   cont.innerHTML=html;
-  _ordenarControlesCardio(cont);
 }
 function agregarFilaEnfermera(btn){
   var cont=btn.closest('.ctrl-cardio-filas');
@@ -1095,6 +1102,7 @@ function addControlCardio(){agregarControl('cardiovascular');}
 function addControlMental(){agregarControl('mental');}
 function addControlIraera(){agregarControl('iraera');}
 function addControlEsp(){agregarControl('especialista');}
+function addControlMorbi(){agregarControl('morbilidad');}
 function agregarControl(tipo){
   var cont=document.getElementById('controlesContainer');
   if(!cont)return;
@@ -1131,6 +1139,10 @@ function agregarControl(tipo){
       +'<select class="ctrl-anio" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_anioOpts()+'</select>'
       +'<input class="ctrl-coment" type="text" placeholder="Comentario (opcional)" style="flex:1;min-width:140px;font-size:12px;padding:3px 6px;border:1px solid #bbb;border-radius:4px">'
       +'</div>';
+  } else if(tipo==='morbilidad'){
+    titulo='\uD83E\uDDB4 Pr\u00f3ximo control m\u00e9dico (morbilidad)';
+    filas=_filaControl('M\u00e9dico/a')
+      +'<div style="font-size:12px;color:#7a5c00;background:#fff8e1;border:1px solid #f0c000;border-radius:5px;padding:6px 10px;margin-top:4px"><strong>Importante:</strong> solicitar la hora en <strong>morbilidad</strong> (artrosis, hipotiroidismo u otra patolog\u00eda cr\u00f3nica que requiera control m\u00e9dico).</div>';
   }
   var div=document.createElement('div');
   div.className='control-card';
@@ -1544,7 +1556,8 @@ function revertirEliminacion(){
     + '<div class="changelog-box no-print"><div class="cl-header" onclick="toggleCL(this)">&#128221; Novedades y actualizaciones <span style="font-weight:400;color:#888;font-size:10px">(ocultar)</span></div><div class="cl-body">'
     + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 23-06-2026</div><ul>'
     + '<li><strong>Pr&oacute;ximo control:</strong> nuevo apartado para indicar el pr&oacute;ximo control (Cardiovascular, Salud mental, Sala IRA/ERA y Especialista), con mes, a&ntilde;o y comentario.</li>'
-    + '<li><strong>Riesgo CV autom&aacute;tico:</strong> en cardiovascular, al elegir el riesgo se generan los pr&oacute;ximos controles en rotaci&oacute;n seg&uacute;n el flujograma PSCV (editables, se reordenan por fecha).</li>'
+    + '<li><strong>Riesgo CV autom&aacute;tico:</strong> en cardiovascular, al elegir el riesgo se calcula el pr&oacute;ximo control seg&uacute;n el flujograma PSCV (editable).</li>'
+    + '<li><strong>Control de morbilidad:</strong> opci&oacute;n para artrosis, hipotiroidismo u otras, con aviso de solicitar hora en morbilidad.</li>'
     + '<li><strong>Aviso de verificaci&oacute;n:</strong> recordatorio de revisar que los medicamentos coincidan con la receta original.</li>'
     + '<li><strong>Jeringa de insulina corregida:</strong> la numeraci&oacute;n parte desde el lado de la aguja.</li>'
     + '</ul>'
@@ -1580,6 +1593,7 @@ function revertirEliminacion(){
     + '<button onclick="addControlMental()" style="padding:6px 12px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#129504; Salud mental</button>'
     + '<button onclick="addControlIraera()" style="padding:6px 12px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#129729; Sala IRA/ERA</button>'
     + '<button onclick="addControlEsp()" style="padding:6px 12px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#129658; Especialista</button>'
+    + '<button onclick="addControlMorbi()" style="padding:6px 12px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#129695; Artrosis / Hipotiroidismo / Otros</button>'
     + '</div></div>'
     + '<div id="controlesContainer"></div>'
     + '</div>\n'
