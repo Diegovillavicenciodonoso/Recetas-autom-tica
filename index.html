@@ -72,6 +72,10 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
       <li><strong>Pr&oacute;ximo control:</strong> nuevo bot&oacute;n bajo el horario para indicar el pr&oacute;ximo control. Incluye Cardiovascular (m&eacute;dico, enfermera y nutricionista), Salud mental, Sala IRA/ERA y Especialista (con lista de especialidades: medicina interna, pediatr&iacute;a, neurolog&iacute;a infantil, ginecolog&iacute;a y dermatolog&iacute;a). Cada control permite indicar mes, a&ntilde;o y un comentario.</li>
       <li><strong>Riesgo CV autom&aacute;tico:</strong> en el control cardiovascular, al elegir el riesgo (bajo, moderado o alto) se calcula autom&aacute;ticamente el pr&oacute;ximo control seg&uacute;n el flujograma PSCV (bajo y moderado: 6 meses; alto: 3 meses). El mes, el a&ntilde;o y el profesional quedan editables.</li>
       <li><strong>Control de morbilidad:</strong> nueva opci&oacute;n para artrosis, hipotiroidismo u otras patolog&iacute;as cr&oacute;nicas, indicando que la hora se solicita en morbilidad.</li>
+      <li><strong>Cardiovascular con un solo profesional:</strong> el control cardiovascular ahora muestra un &uacute;nico control, con el profesional elegible en la lista desplegable.</li>
+      <li><strong>Correcciones de impresi&oacute;n:</strong> el a&ntilde;o del control ahora siempre se imprime junto al mes; se ocultan al imprimir el selector de riesgo y el texto de ayuda.</li>
+      <li><strong>Insulina &mdash; horario de administraci&oacute;n:</strong> las jeringas ahora indican "media hora antes del desayuno" y "media hora antes de la cena".</li>
+      <li><strong>Medicamentos en ayuno:</strong> levotiroxina y los inhibidores de la bomba de protones (omeprazol, lansoprazol, etc.) ahora indican que se toman en ayuno, 30 minutos antes de comer.</li>
       <li><strong>Aviso de verificaci&oacute;n:</strong> recordatorio en pantalla (no se imprime) de revisar manualmente que los medicamentos coincidan con la receta original.</li>
       <li><strong>Jeringa de insulina corregida:</strong> ahora la numeraci&oacute;n parte desde el lado de la aguja, como en una jeringa real.</li>
     </ul>
@@ -439,8 +443,15 @@ function parsearReceta(lines){
 
   function inferIndica(nombre){
     var n=nombre.toLowerCase();
-    for(var k in INDICACIONES) if(n.indexOf(k)!==-1) return INDICACIONES[k];
-    return '';
+    var base='';
+    for(var k in INDICACIONES) if(n.indexOf(k)!==-1){ base=INDICACIONES[k]; break; }
+    // Medicamentos que deben tomarse EN AYUNO: levotiroxina e inhibidores de la bomba de protones
+    var esAyuno=/levotirox|omeprazol|lansoprazol|lanzoprazol|esomeprazol|pantoprazol|rabeprazol|dexlansoprazol/.test(n);
+    if(esAyuno){
+      var avisoAyuno='\uD83D\uDD52 Tomar en ayuno (30 min antes de comer)';
+      return base ? (base + ' \u00b7 ' + avisoAyuno) : avisoAyuno;
+    }
+    return base;
   }
 
   function inferObsDefault(nombre,frecH){
@@ -892,8 +903,8 @@ function buildMedRow(m, i, horas) {
       var filaMed = '<tr data-idx="'+i+'" data-tipo="insulina" data-sos="0">' + nombreTd + dosisTd + insulinaCells + '</tr>';
       // Fila adicional con jeringas esquemáticas (solo si hay dosis)
       var jeringas='';
-      if(io.am>0) jeringas+='<div style="flex:1;min-width:220px">'+jeringaSVG(io.am,'\uD83C\uDF05 Desayuno (AM)',i,'des')+'</div>';
-      if(io.pm>0) jeringas+='<div style="flex:1;min-width:220px">'+jeringaSVG(io.pm,'\uD83C\uDF19 Cena (PM)',i,'cen')+'</div>';
+      if(io.am>0) jeringas+='<div style="flex:1;min-width:220px">'+jeringaSVG(io.am,'\uD83C\uDF05 Media hora antes del desayuno',i,'des')+'</div>';
+      if(io.pm>0) jeringas+='<div style="flex:1;min-width:220px">'+jeringaSVG(io.pm,'\uD83C\uDF19 Media hora antes de la cena',i,'cen')+'</div>';
       var filaJeringa='';
       if(jeringas){
         filaJeringa='<tr class="jeringa-row" data-jeringa-de="'+i+'"><td colspan="'+(horas.length+2)+'" style="border:1.5px solid #888;border-top:none;padding:10px 16px;background:#fafafa"><div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;align-items:flex-end">'+jeringas+'</div></td></tr>';
@@ -1110,7 +1121,7 @@ function agregarControl(tipo){
   var titulo='', filas='';
   if(tipo==='cardiovascular'){
     titulo='\u2764\ufe0f Pr\u00f3ximo control cardiovascular';
-    filas='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:7px 9px;background:#eaf3fa;border:1px solid #cfe0ec;border-radius:6px">'
+    filas='<div class="no-print" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:7px 9px;background:#eaf3fa;border:1px solid #cfe0ec;border-radius:6px">'
       +'<span style="font-weight:bold;font-size:13px;color:#1a5276">Riesgo cardiovascular:</span>'
       +'<select class="ctrl-rcv" onchange="aplicarRCV(this)" style="font-size:12px;font-weight:bold;padding:3px 8px;border:1px solid #1a5276;border-radius:4px;color:#1a5276">'
       +'<option value="">Selecciona...</option>'
@@ -1118,10 +1129,10 @@ function agregarControl(tipo){
       +'<option value="moderado">RCV Moderado</option>'
       +'<option value="alto">RCV Alto</option>'
       +'</select>'
-      +'<span style="font-size:11px;color:#777;font-style:italic">(rellena los meses autom&aacute;ticamente)</span>'
+      +'<span class="no-print" style="font-size:11px;color:#777;font-style:italic">(rellena los meses autom&aacute;ticamente)</span>'
       +'</div>'
       +'<div class="ctrl-cardio-filas">'
-      +_filaControl('M\u00e9dico/a')+_filaControl('Nutricionista')+_filaControl('Enfermera/o', '', '', true)
+      +_filaControlProf('M\u00e9dico/a', '', '')
       +'</div>';
   } else if(tipo==='mental'){
     titulo='\uD83E\uDDE0 Pr\u00f3ximo control salud mental';
@@ -1156,22 +1167,32 @@ function agregarControl(tipo){
 }
 // ── Mostrar valores de los controles al imprimir ──
 function _prepararImpresionControles(){
-  var cards=document.querySelectorAll('.control-card');
-  Array.prototype.forEach.call(cards,function(card){
-    var campos=card.querySelectorAll('select,input');
-    Array.prototype.forEach.call(campos,function(el){
-      // Eliminar span previo si existe
-      var prev=el.nextSibling;
-      if(prev&&prev.className&&prev.className.indexOf('print-val')!==-1){ prev.parentNode.removeChild(prev); }
-      var val='';
-      if(el.tagName==='SELECT'){ val=el.options[el.selectedIndex]?el.options[el.selectedIndex].text:''; if(el.value==='')val=''; }
-      else { val=el.value||''; }
-      var span=document.createElement('span');
-      span.className='print-val'+(val.trim()===''?' print-val-empty':'');
-      span.textContent=val;
-      el.parentNode.insertBefore(span, el.nextSibling);
-    });
+  _limpiarImpresionControles();
+  var filas=document.querySelectorAll('.control-card .ctrl-fila');
+  Array.prototype.forEach.call(filas,function(fila){
+    // Profesional o especialidad
+    var prof=fila.querySelector('.ctrl-prof'), esp=fila.querySelector('.ctrl-esp');
+    var mes=fila.querySelector('.ctrl-mes'), anio=fila.querySelector('.ctrl-anio');
+    var coment=fila.querySelector('.ctrl-coment');
+    // Nombre del profesional (si es un select .ctrl-prof o .ctrl-esp)
+    if(prof){ _ponerSpan(prof, prof.value||''); }
+    if(esp){ _ponerSpan(esp, esp.value||''); }
+    // Fecha combinada: "Mes Año"
+    var mv=mes&&mes.value?mes.value:'';
+    var av=anio&&anio.value?anio.value:'';
+    var fechaTxt=(mv&&av)?(mv+' '+av):(mv||av||'');
+    // Ocultar mes y año, poner un solo span de fecha tras el año
+    if(mes){ _ponerSpan(mes, ''); }
+    if(anio){ _ponerSpan(anio, fechaTxt); }
+    // Comentario
+    if(coment){ _ponerSpan(coment, coment.value||''); }
   });
+}
+function _ponerSpan(el, texto){
+  var span=document.createElement('span');
+  span.className='print-val'+(String(texto).trim()===''?' print-val-empty':'');
+  span.textContent=texto;
+  el.parentNode.insertBefore(span, el.nextSibling);
 }
 function _limpiarImpresionControles(){
   var spans=document.querySelectorAll('.control-card .print-val');
@@ -1251,8 +1272,8 @@ function reconstruirJeringas(idx){
   if(am<=0&&pm<=0){ if(existing)existing.parentNode.removeChild(existing); return; }
   var nCols=document.querySelectorAll('#tabla-print thead th').length;
   var jeringas='';
-  if(am>0) jeringas+='<div style="flex:1;min-width:220px">'+_jeringaFull(am,'\uD83C\uDF05 Desayuno (AM)',idx,'des')+'</div>';
-  if(pm>0) jeringas+='<div style="flex:1;min-width:220px">'+_jeringaFull(pm,'\uD83C\uDF19 Cena (PM)',idx,'cen')+'</div>';
+  if(am>0) jeringas+='<div style="flex:1;min-width:220px">'+_jeringaFull(am,'\uD83C\uDF05 Media hora antes del desayuno',idx,'des')+'</div>';
+  if(pm>0) jeringas+='<div style="flex:1;min-width:220px">'+_jeringaFull(pm,'\uD83C\uDF19 Media hora antes de la cena',idx,'cen')+'</div>';
   var html='<td colspan="'+nCols+'" style="border:1.5px solid #888;border-top:none;padding:10px 16px;background:#fafafa"><div style="display:flex;gap:24px;flex-wrap:wrap;justify-content:center;align-items:flex-end">'+jeringas+'</div></td>';
   if(existing){ existing.innerHTML=html; }
   else {
@@ -1539,6 +1560,7 @@ function revertirEliminacion(){
     + '.cl-body li{margin-bottom:5px}\n'
     + '.firma-autor{position:fixed;bottom:8px;right:12px;font-size:10px;color:#bbb;font-style:italic;z-index:9999}\n'
     + '@media print{.changelog-box,.firma-autor{display:none!important}}\n'
+    + '@page{margin:10mm}\n'
     + '.control-card select,.control-card input{font-family:inherit}\n'
     + '@media print{'
     + '  .proximo-control-wrap > button,#proxControlMenu{display:none!important}'
@@ -1558,6 +1580,9 @@ function revertirEliminacion(){
     + '<li><strong>Pr&oacute;ximo control:</strong> nuevo apartado para indicar el pr&oacute;ximo control (Cardiovascular, Salud mental, Sala IRA/ERA y Especialista), con mes, a&ntilde;o y comentario.</li>'
     + '<li><strong>Riesgo CV autom&aacute;tico:</strong> en cardiovascular, al elegir el riesgo se calcula el pr&oacute;ximo control seg&uacute;n el flujograma PSCV (editable).</li>'
     + '<li><strong>Control de morbilidad:</strong> opci&oacute;n para artrosis, hipotiroidismo u otras, con aviso de solicitar hora en morbilidad.</li>'
+    + '<li><strong>Cardiovascular con un solo profesional</strong> (elegible en la lista) y correcciones de impresi&oacute;n (el a&ntilde;o siempre se imprime).</li>'
+    + '<li><strong>Insulina:</strong> las jeringas indican "media hora antes del desayuno / de la cena".</li>'
+    + '<li><strong>Ayuno:</strong> levotiroxina e inhibidores de la bomba de protones se marcan para tomar en ayuno.</li>'
     + '<li><strong>Aviso de verificaci&oacute;n:</strong> recordatorio de revisar que los medicamentos coincidan con la receta original.</li>'
     + '<li><strong>Jeringa de insulina corregida:</strong> la numeraci&oacute;n parte desde el lado de la aguja.</li>'
     + '</ul>'
