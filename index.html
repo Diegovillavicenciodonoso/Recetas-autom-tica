@@ -66,8 +66,19 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
 <body>
 <div class="changelog-box no-print" id="changelogBox">
   <div class="changelog-header" onclick="var b=document.getElementById('changelogBody');b.classList.toggle('collapsed')">&#128221; Novedades y actualizaciones <span style="font-weight:400;color:#888;font-size:10px">(clic para ocultar)</span></div>
-  <div class="changelog-body" id="changelogBody">
-    <div style="font-weight:700;color:#1a5276;font-size:12px;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 23-06-2026</div>
+  <div class="changelog-body collapsed" id="changelogBody">
+    <div style="font-weight:700;color:#1a5276;font-size:12px;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 03-07-2026</div>
+    <ul>
+      <li><strong>C&oacute;digo QR corregido:</strong> ahora el QR escaneado abre correctamente la receta reconstruida en el celular (bug corregido).</li>
+      <li><strong>C&oacute;digo QR m&aacute;s peque&ntilde;o:</strong> ajustado para que quepa en la misma hoja de la receta.</li>
+      <li><strong>Reordenar en horarios desde cero:</strong> los medicamentos agregados manualmente ahora tienen el manillar &#10247; para arrastrarlos y reordenarlos.</li>
+      <li><strong>Insulina en medicamentos manuales:</strong> nueva opci&oacute;n al agregar un medicamento a mano; activa la jeringa esquem&aacute;tica AM/PM autom&aacute;ticamente.</li>
+      <li><strong>Vencimiento condicional:</strong> el apartado de vencimiento de receta solo aparece si el horario proviene de una receta APS (Eloisa o Rayen). En horarios creados desde cero no aparece.</li>
+      <li><strong>Banner de actualizaciones cerrado por defecto:</strong> se abre al hacer clic.</li>
+      <li><strong>Placeholders auto-editables:</strong> al agregar un medicamento manual, los campos "nombre" y "para qu&eacute; sirve" se limpian solos al empezar a escribir (ya no hay que borrar el texto).</li>
+      <li><strong>Fix Safari iOS:</strong> ajustes para reducir el salto de p&aacute;gina al escribir un medicamento en iPhone.</li>
+    </ul>
+    <div style="font-weight:700;color:#1a5276;font-size:12px;margin:10px 0 4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 23-06-2026</div>
     <ul>
       <li><strong>Pr&oacute;ximo control:</strong> nuevo bot&oacute;n bajo el horario para indicar el pr&oacute;ximo control. Incluye Cardiovascular (m&eacute;dico, enfermera y nutricionista), Salud mental, Sala IRA/ERA y Especialista (con lista de especialidades: medicina interna, pediatr&iacute;a, neurolog&iacute;a infantil, ginecolog&iacute;a y dermatolog&iacute;a). Cada control permite indicar mes, a&ntilde;o y un comentario.</li>
       <li><strong>Riesgo CV autom&aacute;tico:</strong> en el control cardiovascular, al elegir el riesgo (bajo, moderado o alto) se calcula autom&aacute;ticamente el pr&oacute;ximo control seg&uacute;n el flujograma PSCV (bajo y moderado: 6 meses; alto: 3 meses). El mes, el a&ntilde;o y el profesional quedan editables.</li>
@@ -254,23 +265,43 @@ function cargarDesdeFavorito(){
   }catch(e){console.error('Error cargando PDF:',e);}
 }
 // ── Detectar receta codificada en el URL (desde QR) ──
-(function detectarRecetaEnURL(){
+function detectarRecetaEnURL(){
   try{
     var hash=location.hash||'';
+    if(!hash) return false;
+    // El hash puede venir URL-encoded si algún lector QR lo transforma
+    hash=decodeURIComponent(hash);
     var m=hash.match(/[#&]r=([^&]+)/);
-    if(m&&m[1]){
-      var datos=decodificarReceta(m[1]);
-      if(datos.medicamentos&&datos.medicamentos.length){
-        // Ordenar insulinas al final (buildHTML también lo hace)
-        var html=buildHTML(datos);
-        // Reemplazar toda la página con la receta reconstruida
-        document.open();
-        document.write(html);
-        document.close();
-      }
+    if(!m||!m[1]) return false;
+    var code=m[1];
+    var datos=decodificarReceta(code);
+    if(!datos.medicamentos||!datos.medicamentos.length){
+      console.warn('QR recibido pero sin medicamentos');
+      return false;
     }
-  }catch(err){ console.error('Error al leer receta del QR:',err); }
-})();
+    var html=buildHTML(datos);
+    // Reemplazar el documento entero con la receta reconstruida
+    // Usar setTimeout(0) para que ocurra tras el parse actual
+    setTimeout(function(){
+      document.open();
+      document.write(html);
+      document.close();
+    }, 0);
+    return true;
+  }catch(err){
+    console.error('Error al leer receta del QR:', err);
+    alert('No se pudo leer la receta del c\u00f3digo QR: '+err.message);
+    return false;
+  }
+}
+// Detectar apenas se carga (o inmediatamente si ya está cargado)
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', detectarRecetaEnURL);
+} else {
+  detectarRecetaEnURL();
+}
+// Reintentar si el hash cambia (por ejemplo al escanear otro QR)
+window.addEventListener('hashchange', detectarRecetaEnURL);
 
 // Recibir PDF desde el bookmarklet via postMessage
 window.addEventListener('message', function(e){
@@ -367,6 +398,7 @@ function crearDesdeCero(){
   var dd=String(hoy.getDate()).padStart(2,'0'), mm=String(hoy.getMonth()+1).padStart(2,'0');
   var fechaHoy=dd+'-'+mm+'-'+hoy.getFullYear();
   var datos={
+    origen:'manual',
     centro:centro,
     paciente:{nombre:nombre.toUpperCase(), nombreSocial:nombre.split(' ')[0], rut:rut, edad:'', fecha:fechaHoy, fechaCreacion:fechaHoy, medico:medico},
     medicamentos:[],
@@ -1389,7 +1421,7 @@ function generarQRAhora(){
     var datos=leerRecetaActual();
     if(!datos.medicamentos.length){box.innerHTML='<div style="font-size:11px;color:#888">Sin medicamentos</div>';return;}
     var url=(typeof APP_URL!=='undefined'?APP_URL:'')+'#r='+codificarReceta(datos);
-    box.innerHTML=generarQRSVG(url,3);
+    box.innerHTML=generarQRSVG(url,2);
   }catch(err){
     box.innerHTML='<div style="font-size:11px;color:#c00">No se pudo generar el QR</div>';
   }
@@ -1620,15 +1652,19 @@ function agregarMedicamento(){
   var tdNombre=document.createElement('td');
   tdNombre.style.cssText='border:1.5px solid #888;padding:9px 10px;background:#fffbe6;vertical-align:middle';
   tdNombre.innerHTML='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">'
+    +'<div style="display:flex;align-items:flex-start;gap:8px;flex:1">'
+    +'<span class="drag-handle no-print" title="Arrastra para reordenar" style="cursor:grab;color:#bbb;font-size:18px;line-height:1;user-select:none;padding-top:1px">\u2807</span>'
     +'<div style="flex:1">'
-    +'<div class="med-nombre-txt" contenteditable="true" style="font-size:17px;font-weight:bold;min-width:80px;outline:none;border-bottom:1px dashed #aaa" data-placeholder="NOMBRE">NUEVO MEDICAMENTO</div>'
-    +'<div contenteditable="true" style="font-size:11px;color:#444;font-style:italic;margin-top:2px;outline:none;border-bottom:1px dashed #ccc">Para qué sirve (opcional)</div>'
+    +'<div class="med-nombre-txt ph-editable" contenteditable="true" style="font-size:17px;font-weight:bold;min-width:80px;outline:none;border-bottom:1px dashed #aaa;scroll-margin-top:80px" data-placeholder="NUEVO MEDICAMENTO"></div>'
+    +'<div class="ph-editable" contenteditable="true" style="font-size:11px;color:#444;font-style:italic;margin-top:2px;outline:none;border-bottom:1px dashed #ccc;scroll-margin-top:80px" data-placeholder="Para qué sirve (opcional)"></div>'
     +'<select class="no-print" onchange="cambiarTipoManual(this)" style="font-size:10px;margin-top:4px;padding:1px 3px;border:1px solid #bbb;border-radius:3px">'
     +'<option value="pastilla" selected>💊 Pastillas</option>'
     +'<option value="gotas">💧 Gotas</option>'
     +'<option value="jarabe">🥄 Jarabe</option>'
     +'<option value="inhalador">💨 Inhalador</option>'
+    +'<option value="insulina">💉 Insulina</option>'
     +'</select>'
+    +'</div>'
     +'</div>'
     +'<button class="no-print" onclick="eliminarFila(this)" title="Eliminar medicamento" style="flex-shrink:0;background:none;border:1px solid #ccc;border-radius:4px;padding:2px 6px;font-size:12px;color:#888;cursor:pointer;line-height:1">✕</button>'
     +'</div>';
@@ -1638,7 +1674,7 @@ function agregarMedicamento(){
   tdDosis.style.cssText='border:1.5px solid #888;padding:9px 4px;text-align:center;background:#fffbe6;font-weight:bold;font-size:14px;vertical-align:middle';
   tdDosis.contentEditable='true';
   tdDosis.style.outline='none';
-  tdDosis.textContent='mg';
+  tdDosis.setAttribute('data-placeholder','mg');tdDosis.className='ph-editable';
   tr.appendChild(tdDosis);
   // Celdas de horario
   for(var i=0;i<nCols;i++){
@@ -1655,17 +1691,48 @@ function agregarMedicamento(){
 function cambiarTipoManual(sel){
   var tr=sel.closest('tr');
   var tipo=sel.value;
+  var tipoAnterior=tr.dataset.tipo||'pastilla';
   tr.dataset.tipo=tipo;
-  tr.querySelectorAll('td.dose-cell').forEach(function(td){
-    var qty=td.querySelector('.qty-select');
-    if(qty){
-      qty.dataset.tipo=tipo;
-      qty.innerHTML=buildOpts(tipo,0);
+  var idx=tr.dataset.idx;
+  // Si pasaba de insulina a otra cosa: quitar fila de jeringa
+  if(tipoAnterior==='insulina' && tipo!=='insulina'){
+    var jr=document.querySelector('tr.jeringa-row[data-jeringa-de="'+idx+'"]');
+    if(jr)jr.parentNode.removeChild(jr);
+  }
+  // Si es insulina: reemplazar las dose-cells con selectores de UI y crear fila de jeringa
+  if(tipo==='insulina'){
+    var doseCells=tr.querySelectorAll('td.dose-cell');
+    // Preparar opciones 0..60 UI
+    var uiOpts='<option value="0">0 UI</option>';
+    for(var u=2;u<=60;u+=2) uiOpts+='<option value="'+u+'">'+u+' UI</option>';
+    // Solo primera (desayuno) y última visible (cena) reciben selects; otras se ocultan
+    // Encontrar índice de desayuno (des) y cena (cen) por horasCols
+    var idxDes=-1, idxCen=-1;
+    for(var i=0;i<horasCols.length;i++){
+      if(horasCols[i].k==='des')idxDes=i;
+      if(horasCols[i].k==='cen')idxCen=i;
     }
-    td.querySelector('.pill-display').innerHTML='';
-    td.classList.add('empty-cell');
-    td.style.background='#fff';
-  });
+    doseCells.forEach(function(td, i){
+      if(i===idxDes||i===idxCen){
+        var hrKey=i===idxDes?'des':'cen';
+        td.className='dose-cell empty-cell';
+        td.style.background='#fff';
+        td.innerHTML='<div class="pill-display"></div>'
+          +'<select data-jidx="'+idx+'" data-jhr="'+hrKey+'" onchange="updInsulinaCell(this)" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:108px">'+uiOpts+'</select>';
+      } else {
+        td.innerHTML='<div style="color:#ccc;font-size:11px">—</div>';
+        td.classList.add('empty-cell');
+      }
+    });
+  } else {
+    // Cambio a otro tipo (o entre no-insulina): restaurar selectores normales
+    tr.querySelectorAll('td.dose-cell').forEach(function(td){
+      td.classList.add('empty-cell');
+      td.style.background='#fff';
+      td.innerHTML='<div class="pill-display"></div>'
+        +'<select class="qty-select" data-tipo="'+tipo+'" onchange="updCell(this)" style="font-size:11px;font-weight:bold;margin-top:3px;padding:2px 3px;border:1px solid #999;border-radius:3px;background:#fff;width:100%;max-width:110px">'+buildOpts(tipo,0)+'</select>';
+    });
+  }
 }
 function updSOSDisp(sel, tipo, idx){
   var val=parseFloat(sel.value);
@@ -1802,6 +1869,15 @@ function revertirEliminacion(){
     + '.firma-autor{position:fixed;bottom:8px;right:12px;font-size:10px;color:#bbb;font-style:italic;z-index:9999}\n'
     + '@media print{.changelog-box,.firma-autor{display:none!important}}\n'
     + '@page{margin:10mm}\n'
+    + '#qrSVG svg{max-width:130px;height:auto;display:block;margin:0 auto}\n'
+    + '.ph-editable:empty::before{content:attr(data-placeholder);color:#bbb;font-weight:normal;font-style:italic;pointer-events:none}\n'
+    + '.ph-editable:focus::before{content:none}\n'
+    + '@media print{.ph-editable:empty::before{content:none}}\n'
+    + '/* iOS Safari: evitar zoom al enfocar inputs + scroll agresivo */\n'
+    + 'input,select,textarea,[contenteditable]{font-size:16px}\n'
+    + '[contenteditable]{-webkit-user-select:text;user-select:text;scroll-margin-top:120px;scroll-margin-bottom:40vh}\n'
+    + '.med-nombre-txt{font-size:17px!important}\n'
+    + 'html,body{-webkit-text-size-adjust:100%}\n'
     + '@media screen and (max-width:640px){\n'
     + '  body{padding:6px!important}\n'
     + '  #tabla-print,#tabla-print tbody,#tabla-print tr{display:block;width:100%!important;box-sizing:border-box}\n'
@@ -1834,8 +1910,18 @@ function revertirEliminacion(){
     + 'table{width:100%;border-collapse:collapse;table-layout:fixed}\n'
     + 'th,td{word-break:keep-all;overflow-wrap:break-word}\n'
     + '</style></head><body>\n'
-    + '<div class="changelog-box no-print"><div class="cl-header" onclick="toggleCL(this)">&#128221; Novedades y actualizaciones <span style="font-weight:400;color:#888;font-size:10px">(ocultar)</span></div><div class="cl-body">'
-    + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 23-06-2026</div><ul>'
+    + '<div class="changelog-box no-print"><div class="cl-header" onclick="toggleCL(this)">&#128221; Novedades y actualizaciones <span style="font-weight:400;color:#888;font-size:10px">(mostrar)</span></div><div class="cl-body cl-hidden">'
+    + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 03-07-2026</div><ul>'
+    + '<li><strong>QR corregido:</strong> ahora reconstruye correctamente la receta al escanear.</li>'
+    + '<li><strong>QR m&aacute;s peque&ntilde;o</strong> para que quepa en la misma hoja.</li>'
+    + '<li><strong>Reordenar en horarios manuales</strong> con el manillar &#10247;.</li>'
+    + '<li><strong>Insulina manual:</strong> activa la jeringa AM/PM al elegir el tipo.</li>'
+    + '<li><strong>Vencimiento solo para recetas APS</strong> (no aparece en horarios desde cero).</li>'
+    + '<li><strong>Banner de novedades cerrado por defecto</strong> (se abre al clic).</li>'
+    + '<li><strong>Placeholders auto-editables</strong> en medicamentos manuales.</li>'
+    + '<li><strong>Fix Safari iOS</strong> para reducir el salto de p&aacute;gina al editar.</li>'
+    + '</ul>'
+    + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 23-06-2026</div><ul>'
     + '<li><strong>Pr&oacute;ximo control:</strong> nuevo apartado para indicar el pr&oacute;ximo control (Cardiovascular, Salud mental, Sala IRA/ERA y Especialista), con mes, a&ntilde;o y comentario.</li>'
     + '<li><strong>Riesgo CV autom&aacute;tico:</strong> en cardiovascular, al elegir el riesgo se calcula el pr&oacute;ximo control seg&uacute;n el flujograma PSCV (editable).</li>'
     + '<li><strong>Control de morbilidad:</strong> opci&oacute;n para artrosis, hipotiroidismo u otras, con aviso de solicitar hora en morbilidad.</li>'
@@ -1863,10 +1949,10 @@ function revertirEliminacion(){
     + '<div style="font-size:17px;color:#333;margin-top:3px">Hola, <strong>' + (p.nombreSocial||p.nombre||'Paciente') + '</strong></div>\n'
     + '<div style="font-size:12px;color:#555;margin-top:2px">' + (p.nombre||'') + ' | RUN: ' + (p.rut||'') + ' | ' + (p.edad||'') + '</div>\n'
     + '<div style="font-size:11px;color:#777;margin-top:1px">Fecha: ' + (p.fechaCreacion||p.fecha||'') + ' | ' + (p.medico||'') + '</div></div></div>\n'
-    + '<div style="background:#f5f5f0;border:1.5px solid #999;border-radius:6px;padding:8px 14px;margin-bottom:10px;font-size:13px;color:#333;line-height:1.6">'
+    + (data.origen==='manual' ? '' : ('<div style="background:#f5f5f0;border:1.5px solid #999;border-radius:6px;padding:8px 14px;margin-bottom:10px;font-size:13px;color:#333;line-height:1.6">'
   + '<strong>&#9200; Vencimiento de receta: ' + calcVencimiento(p.fechaCreacion||p.fecha, meds) + '</strong><br>'
   + 'Debe solicitar hora m&eacute;dica o acercarse a SOME para renovar su receta.'
-  + '</div>\n'
+  + '</div>\n'))
   + '<div style="text-align:center;border-top:2px solid #555;border-bottom:2px solid #555;padding:5px 0;margin-bottom:12px;font-size:14px;font-weight:bold">Tome sus medicamentos todos los días a la misma hora</div>\n'
     + '<div id="undo-bar" class="no-print" style="display:none;align-items:center;gap:10px;background:#333;color:#fff;padding:8px 14px;border-radius:8px;margin-bottom:10px;font-size:13px"><span>&#128465; Eliminado: <strong class="undo-name"></strong></span><button onclick="revertirEliminacion()" style="margin-left:auto;padding:4px 14px;background:#fff;color:#333;border:none;border-radius:5px;font-weight:bold;cursor:pointer">&#8617; Deshacer</button></div>\n'
     + '<table id="tabla-print"><thead><tr>' + ths + '</tr></thead><tbody>' + rows + '</tbody></table>\n'
@@ -1885,9 +1971,9 @@ function revertirEliminacion(){
     + '<div id="controlesContainer"></div>'
     + '<div id="qrWrap">'
     + '<button id="btnToggleQR" class="no-print" onclick="toggleQR()" style="display:block;margin:14px auto 4px;padding:5px 14px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #999;color:#555;border-radius:5px;cursor:pointer">&#128065; Ocultar QR</button>'
-    + '<div id="qrReceta" class="qr-receta" style="margin:6px auto 8px;max-width:900px;padding:14px;border:1.5px solid #ccc;border-radius:10px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center;background:#fafafa">'
-    + '<div id="qrSVG" style="text-align:center;min-width:120px"><div class="no-print" style="font-size:12px;color:#888;font-style:italic;padding:20px 10px;border:1px dashed #ccc;border-radius:8px">El c&oacute;digo QR se generar&aacute;<br>autom&aacute;ticamente al imprimir,<br>con todos los cambios incluidos</div></div>'
-    + '<div style="flex:1;min-width:200px;font-size:13px;color:#444;line-height:1.5"><strong style="color:#1a3a2a;font-size:15px">&#128241; Lleve su horario en el celular</strong><br>Escanee este c&oacute;digo QR con la c&aacute;mara del tel&eacute;fono para abrir este horario de medicamentos en su dispositivo.<br><span style="font-size:11px;color:#888">El c&oacute;digo contiene solo los medicamentos y horarios, sin datos personales sensibles.</span></div>'
+    + '<div id="qrReceta" class="qr-receta" style="margin:6px auto 4px;max-width:600px;padding:8px 10px;border:1px solid #ccc;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;background:#fafafa">'
+    + '<div id="qrSVG" style="text-align:center;min-width:80px"><div class="no-print" style="font-size:10px;color:#888;font-style:italic;padding:10px 6px;border:1px dashed #ccc;border-radius:6px">QR se generar&aacute;<br>al imprimir</div></div>'
+    + '<div style="flex:1;min-width:160px;max-width:340px;font-size:11px;color:#444;line-height:1.35"><strong style="color:#1a3a2a;font-size:12px">&#128241; Lleve su horario en el celular</strong><br>Escanee este c&oacute;digo con la c&aacute;mara del tel&eacute;fono.<br><span style="font-size:10px;color:#888">Contiene solo medicamentos y horarios.</span></div>'
     + '</div>'
     + '</div>'
     + '</div>\n'
