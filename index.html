@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a3a2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Mi Pastillero">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <title>Horario de Medicamentos</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
@@ -251,6 +259,14 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
 <script>
 
 
+// Registrar Service Worker para PWA (Mi Pastillero)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('service-worker.js').catch(function(err){
+      console.warn('SW registration failed:', err);
+    });
+  });
+}
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // ── Auto-cargar PDF desde bookmarklet (via localStorage + hash trigger) ──
@@ -762,17 +778,21 @@ function _b64urlDecode(str){
   return decodeURIComponent(escape(atob(str)));
 }
 function codificarReceta(datos){
-  // Formato compacto: centro|nombreSocial|med1~med2~...
+  // Formato compacto: centro|nombreSocial|med1~med2~...|centroNombre|ctrl1;ctrl2;...
   // med: nombre^tipo^dosis^obs^sos[^insAMxPM]
+  // ctrl: tipo^profesional^mes^anio^comentario
   var C=datos.centro||'fresia';
   var pac=(datos.paciente&&datos.paciente.nombreSocial)||'Paciente';
+  var centroN=datos.centroNombreDetectado||'';
   var meds=datos.medicamentos.map(function(m){
     var campos=[m.nombre, m.tipo, m.dosis||'', m.obs||'', m.sos?'1':'0'];
     if(m.tipo==='insulina'&&m.insulinaObs){ campos.push('i'+(m.insulinaObs.am||0)+'x'+(m.insulinaObs.pm||0)); }
-    // Reemplazar separadores que puedan colisionar
-    return campos.map(function(c){return String(c).replace(/[\^~|]/g,' ');}).join('^');
+    return campos.map(function(c){return String(c).replace(/[\^~|;]/g,' ');}).join('^');
   }).join('~');
-  var raw=[C, pac.replace(/[|~^]/g,' '), meds].join('|');
+  var ctrls=(datos.controles||[]).map(function(c){
+    return [c.tipo||'', c.profesional||'', c.mes||'', c.anio||'', (c.comentario||'').replace(/[\^~|;]/g,' ')].join('^');
+  }).join(';');
+  var raw=[C, pac.replace(/[|~^;]/g,' '), meds, centroN.replace(/[|~^;]/g,' '), ctrls].join('|');
   return _b64urlEncode(raw);
 }
 function decodificarReceta(code){
@@ -781,19 +801,23 @@ function decodificarReceta(code){
   var centro=partes[0]||'fresia';
   var nombreSocial=partes[1]||'Paciente';
   var medsRaw=partes[2]||'';
+  var centroNombreDetectado=partes[3]||'';
+  var ctrlsRaw=partes[4]||'';
   var medicamentos=medsRaw?medsRaw.split('~').map(function(mstr){
     var c=mstr.split('^');
     var m={nombre:c[0]||'', tipo:c[1]||'pastilla', dosis:c[2]||'', obs:c[3]||'1-0-0', sos:c[4]==='1', indica:'', meses:12, cantToma:1, insulinaObs:null};
-    // Recuperar indicación automática (incluye ayuno)
     m.indica=inferIndicaExterna(m.nombre);
-    // Insulina
     for(var k=5;k<c.length;k++){
       var im=c[k].match(/^i(\d+)x(\d+)$/);
       if(im) m.insulinaObs={am:parseInt(im[1]),pm:parseInt(im[2])};
     }
     return m;
   }):[];
-  return {centro:centro, paciente:{nombre:nombreSocial, nombreSocial:nombreSocial, rut:'', edad:'', fecha:'', fechaCreacion:'', medico:''}, medicamentos:medicamentos, warnings:[]};
+  var controles=ctrlsRaw?ctrlsRaw.split(';').filter(Boolean).map(function(cstr){
+    var c=cstr.split('^');
+    return {tipo:c[0]||'', profesional:c[1]||'', mes:c[2]||'', anio:c[3]||'', comentario:c[4]||''};
+  }):[];
+  return {centro:centro, centroNombreDetectado:centroNombreDetectado, origen:'qr', paciente:{nombre:nombreSocial, nombreSocial:nombreSocial, rut:'', edad:'', fecha:'', fechaCreacion:'', medico:''}, medicamentos:medicamentos, controles:controles, warnings:[]};
 }
 // Versión de inferIndica accesible fuera del parser (para decodificar QR)
 function inferIndicaExterna(nombre){
@@ -1435,9 +1459,43 @@ function leerRecetaActual(){
     }
     meds.push({nombre:nombre,tipo:tipo,dosis:dosis,obs:obs,sos:sos,insulinaObs:insulinaObs});
   });
+  // Leer controles próximos
+  var controles=[];
+  var cards=document.querySelectorAll('.control-card');
+  Array.prototype.forEach.call(cards, function(card){
+    var titulo=card.querySelector('span');
+    var tipoTitulo=titulo?titulo.textContent:'';
+    // Detectar tipo por el título
+    var tipo='otro';
+    if(/[Cc]ardiovascular/.test(tipoTitulo)) tipo='cardiovascular';
+    else if(/[Mm]ental/.test(tipoTitulo)) tipo='mental';
+    else if(/IRA|ERA/.test(tipoTitulo)) tipo='iraera';
+    else if(/[Ee]specialista/.test(tipoTitulo)) tipo='especialista';
+    else if(/[Mm]orbilidad/.test(tipoTitulo)) tipo='morbilidad';
+    var filas=card.querySelectorAll('.ctrl-fila');
+    Array.prototype.forEach.call(filas, function(fila){
+      var profSel=fila.querySelector('.ctrl-prof');
+      var espSel=fila.querySelector('.ctrl-esp');
+      var profSpan=fila.querySelector('span');
+      var prof='';
+      if(profSel && profSel.value) prof=profSel.value;
+      else if(espSel && espSel.value) prof=espSel.value;
+      else if(profSpan) prof=profSpan.textContent.trim();
+      var mes=fila.querySelector('.ctrl-mes');
+      var anio=fila.querySelector('.ctrl-anio');
+      var coment=fila.querySelector('.ctrl-coment');
+      var mesVal=mes?mes.value:'';
+      var anioVal=anio?anio.value:'';
+      // Solo agregar si tiene al menos mes/año o profesional definido
+      if(mesVal || anioVal || (prof && prof!=='Selecciona especialidad')){
+        controles.push({tipo:tipo, profesional:prof, mes:mesVal, anio:anioVal, comentario:coment?coment.value:''});
+      }
+    });
+  });
   return {centro:(typeof CENTRO_ACTUAL!=='undefined'?CENTRO_ACTUAL:'fresia'),
+          centroNombreDetectado:(typeof CENTRO_NOMBRE_ACTUAL!=='undefined'?CENTRO_NOMBRE_ACTUAL:''),
           paciente:{nombreSocial:(typeof PACIENTE_ACTUAL!=='undefined'?PACIENTE_ACTUAL:'Paciente')},
-          medicamentos:meds};
+          medicamentos:meds, controles:controles};
 }
 function generarQRAhora(){
   var box=document.getElementById('qrSVG');
@@ -1459,6 +1517,64 @@ function toggleQR(){
   qr.style.display=oculto?'flex':'none';
   if(btn)btn.innerHTML=oculto?'\uD83D\uDC41 Ocultar QR':'\uD83D\uDC41 Mostrar QR';
 }
+// Restaurar controles desde datos QR (o receta guardada)
+function _restaurarControlesIniciales(){
+  if(typeof CONTROLES_INICIALES==='undefined'||!CONTROLES_INICIALES||!CONTROLES_INICIALES.length)return;
+  var cont=document.getElementById('controlesContainer');
+  if(!cont)return;
+  // Agrupar por tipo (una tarjeta por tipo)
+  var porTipo={};
+  CONTROLES_INICIALES.forEach(function(c){
+    if(!porTipo[c.tipo])porTipo[c.tipo]=[];
+    porTipo[c.tipo].push(c);
+  });
+  Object.keys(porTipo).forEach(function(tipo){
+    if(typeof agregarControl!=='function')return;
+    agregarControl(tipo);
+    // Buscar la última tarjeta creada
+    var cards=cont.querySelectorAll('.control-card');
+    var card=cards[cards.length-1];
+    if(!card)return;
+    // Reemplazar las filas por las que vienen en los datos
+    var filasContenedor=card.querySelector('.ctrl-cardio-filas') || card;
+    // Limpiar filas existentes (default)
+    Array.prototype.forEach.call(filasContenedor.querySelectorAll('.ctrl-fila'), function(f){f.parentNode.removeChild(f);});
+    // Agregar filas desde CONTROLES_INICIALES
+    porTipo[tipo].forEach(function(c){
+      var html;
+      if(tipo==='especialista'){
+        var especialidades=['Medicina Interna','Pediatr\u00eda','Neurolog\u00eda Infantil','Ginecolog\u00eda','Dermatolog\u00eda'];
+        var opts='<option value="">Selecciona especialidad</option>';
+        especialidades.forEach(function(esp){opts+='<option value="'+esp+'"'+(esp===c.profesional?' selected':'')+'>'+esp+'</option>';});
+        html='<div class="ctrl-fila" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;padding:6px 8px;background:#fff;border:1px solid #e0e8ee;border-radius:6px">'
+          +'<select class="ctrl-esp" style="font-weight:bold;font-size:13px;padding:3px 6px;border:1px solid #1a5276;border-radius:4px;color:#1a5276">'+opts+'</select>'
+          +'<select class="ctrl-mes" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_mesOpts(c.mes)+'</select>'
+          +'<select class="ctrl-anio" style="font-size:12px;padding:3px 5px;border:1px solid #bbb;border-radius:4px">'+_anioOpts(c.anio)+'</select>'
+          +'<input class="ctrl-coment" type="text" placeholder="Comentario (opcional)" value="'+String(c.comentario||'').replace(/"/g,'&quot;')+'" style="flex:1;min-width:140px;font-size:12px;padding:3px 6px;border:1px solid #bbb;border-radius:4px">'
+          +'</div>';
+      } else if(tipo==='cardiovascular'){
+        html=_filaControlProf(c.profesional||'M\u00e9dico/a', c.mes, c.anio);
+        // Set comentario after
+        var tmpDiv=document.createElement('div');tmpDiv.innerHTML=html;
+        var comentInp=tmpDiv.querySelector('.ctrl-coment');
+        if(comentInp) comentInp.value=c.comentario||'';
+        html=tmpDiv.innerHTML;
+      } else {
+        html=_filaControl(c.profesional||'M\u00e9dico/a', c.mes, c.anio, false);
+        var tmpDiv2=document.createElement('div');tmpDiv2.innerHTML=html;
+        var comentInp2=tmpDiv2.querySelector('.ctrl-coment');
+        if(comentInp2) comentInp2.value=c.comentario||'';
+        html=tmpDiv2.innerHTML;
+      }
+      var div=document.createElement('div');
+      div.innerHTML=html;
+      filasContenedor.appendChild(div.firstChild);
+    });
+  });
+}
+document.addEventListener('DOMContentLoaded', _restaurarControlesIniciales);
+if(document.readyState!=='loading') setTimeout(_restaurarControlesIniciales, 100);
+
 window.addEventListener('beforeprint',function(){
   var qr=document.getElementById('qrReceta');
   if(qr&&qr.style.display!=='none') generarQRAhora();
@@ -1904,22 +2020,51 @@ function revertirEliminacion(){
     + '.med-nombre-txt{font-size:17px!important}\n'
     + 'html,body{-webkit-text-size-adjust:100%}\n'
     + '@media screen and (max-width:640px){\n'
-    + '  body{padding:6px!important}\n'
-    + '  #tabla-print,#tabla-print tbody,#tabla-print tr{display:block;width:100%!important;box-sizing:border-box}\n'
+    + '  body{padding:8px!important;font-size:14px}\n'
+    + '  /* Ocultar QR panel en mobile (se usa formato solo lectura) */\n'
+    + '  /* Reset table -> cards */\n'
+    + '  #tabla-print{display:block;width:100%!important;border:none!important;background:transparent!important}\n'
     + '  #tabla-print thead{display:none}\n'
-    + '  #tabla-print tbody tr{margin-bottom:14px;border:2px solid #888;border-radius:10px;overflow:hidden;background:#fff!important}\n'
-    + '  #tabla-print td{display:block;width:100%!important;box-sizing:border-box;border:none!important;border-bottom:1px solid #e0e0e0!important;background:#fff!important}\n'
-    + '  #tabla-print td:last-child{border-bottom:none!important}\n'
-    + '  #tabla-print td.dose-cell::before{display:block;font-weight:bold;font-size:12px;color:#1a3a2a;margin-bottom:3px}\n'
-    + '  #tabla-print tr td.dose-cell:nth-child(3)::before{content:"\\uD83C\\uDF05 DESAYUNO"}\n'
-    + '  #tabla-print tr td.dose-cell:nth-child(4)::before{content:"\\uD83C\\uDF7D\\uFE0F ALMUERZO"}\n'
-    + '  #tabla-print tr td.dose-cell:nth-child(5)::before{content:"\\uD83C\\uDF19 CENA"}\n'
-    + '  #tabla-print tr td.dose-cell:nth-child(6)::before{content:"\\uD83C\\uDF1B NOCHE"}\n'
+    + '  #tabla-print tbody,#tabla-print tbody tr{display:block;width:100%!important}\n'
+    + '  #tabla-print tbody tr{margin-bottom:16px;border:2px solid #1a3a2a;border-radius:12px;overflow:hidden;background:#fff!important;box-shadow:0 2px 6px rgba(0,0,0,0.08)}\n'
+    + '  #tabla-print td{display:block;width:100%!important;box-sizing:border-box;border:none!important;padding:10px 14px!important;text-align:left!important}\n'
+    + '  /* Primera celda: nombre del medicamento con fondo destacado */\n'
+    + '  #tabla-print tbody tr td:first-child{background:#f0f7f0!important;border-bottom:2px solid #1a3a2a!important;font-size:16px}\n'
+    + '  #tabla-print tbody tr td:first-child .med-nombre-txt{font-size:18px!important;text-align:left!important}\n'
+    + '  /* Segunda celda: dosis */\n'
+    + '  #tabla-print tbody tr td:nth-child(2){background:#fafafa!important;border-bottom:1px solid #ddd!important;font-size:15px;text-align:center!important}\n'
+    + '  /* Celdas de horario: cada una con su etiqueta arriba */\n'
+    + '  #tabla-print td.dose-cell{border-bottom:1px solid #eee!important;padding:12px 14px!important;text-align:center!important}\n'
+    + '  #tabla-print td.dose-cell:last-child{border-bottom:none!important}\n'
+    + '  #tabla-print td.dose-cell::before{display:block;font-weight:bold;font-size:13px;color:#1a3a2a;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px}\n'
+    + '  #tabla-print tr td.dose-cell:nth-child(3)::before{content:"\\uD83C\\uDF05  DESAYUNO"}\n'
+    + '  #tabla-print tr td.dose-cell:nth-child(4)::before{content:"\\uD83C\\uDF7D\\uFE0F  ALMUERZO"}\n'
+    + '  #tabla-print tr td.dose-cell:nth-child(5)::before{content:"\\uD83C\\uDF19  CENA"}\n'
+    + '  #tabla-print tr td.dose-cell:nth-child(6)::before{content:"\\uD83C\\uDF1B  NOCHE"}\n'
+    + '  /* Ocultar celdas vacías */\n'
     + '  #tabla-print td.dose-cell.empty-cell{display:none!important}\n'
-    + '  .jeringa-row td{padding:8px 4px!important}\n'
-    + '  .jeringa-row svg{max-width:100%!important;height:auto}\n'
-    + '  .changelog-box{position:static!important;max-width:100%!important;margin-bottom:10px}\n'
+    + '  /* Pill display responsive */\n'
+    + '  #tabla-print .pill-display{display:inline-block;max-width:100%}\n'
+    + '  #tabla-print .pill-display svg{max-width:60px!important;height:auto!important;display:inline-block!important;vertical-align:middle;margin:0 2px}\n'
+    + '  #tabla-print .pill-display img{max-width:40px!important;height:auto!important;vertical-align:middle}\n'
+    + '  /* Jeringa row: dar espacio */\n'
+    + '  .jeringa-row{display:block!important;width:100%!important;background:#fafafa!important;padding:10px!important;margin-top:8px}\n'
+    + '  .jeringa-row td{display:block!important;width:100%!important;padding:8px 4px!important;text-align:center!important;border:none!important}\n'
+    + '  .jeringa-row svg{max-width:100%!important;height:auto!important;display:block;margin:0 auto}\n'
+    + '  /* Print elements */\n'
+    + '  .changelog-box{position:static!important;max-width:100%!important;margin:0 0 10px 0!important}\n'
     + '  .firma-autor{position:static!important;text-align:center;margin-top:10px}\n'
+    + '  /* QR panel more compact */\n'
+    + '  .qr-receta{flex-direction:column!important;max-width:100%!important;padding:10px!important}\n'
+    + '  .qr-receta > div{max-width:100%!important;min-width:0!important}\n'
+    + '  /* Controles */\n'
+    + '  .control-card{padding:10px!important}\n'
+    + '  .ctrl-fila{flex-direction:column!important;align-items:stretch!important}\n'
+    + '  /* Encabezado con logo */\n'
+    + '  .print-header{flex-direction:column!important;text-align:center!important;gap:8px!important}\n'
+    + '  .print-header img{max-width:80px!important;margin:0 auto!important}\n'
+    + '  /* Header info block: horario del paciente */\n'
+    + '  .med-nombre-cell{padding:6px 8px!important}\n'
     + '}\n'
     + '.control-card select,.control-card input{font-family:inherit}\n'
     + '@media print{'
@@ -2015,6 +2160,8 @@ function revertirEliminacion(){
     + 'var horasCols=' + JSON.stringify(horas) + ';\n'
     + 'var APP_URL=' + JSON.stringify((location.origin||'') + (location.pathname||'')) + ';\n'
     + 'var CENTRO_ACTUAL=' + JSON.stringify(data.centro||'fresia') + ';\n'
+    + 'var CENTRO_NOMBRE_ACTUAL=' + JSON.stringify(data.centroNombreDetectado||'') + ';\n'
+    + 'var CONTROLES_INICIALES=' + JSON.stringify(data.controles||[]) + ';\n'
     + 'var PACIENTE_ACTUAL=' + JSON.stringify((p.nombreSocial||'Paciente')) + ';\n'
     + parsObs.toString() + '\n'
     + dosisSOSHTML.toString() + '\n'
