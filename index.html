@@ -75,7 +75,11 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
 <div class="changelog-box no-print" id="changelogBox">
   <div class="changelog-header" onclick="var b=document.getElementById('changelogBody');b.classList.toggle('collapsed')">&#128221; Novedades y actualizaciones <span style="font-weight:400;color:#888;font-size:10px">(clic para ocultar)</span></div>
   <div class="changelog-body collapsed" id="changelogBody">
-    <div style="font-weight:700;color:#1a5276;font-size:12px;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 05-07-2026</div>
+    <div style="font-weight:700;color:#1a5276;font-size:12px;margin-bottom:4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 27-07-2026</div>
+    <ul>
+      <li><strong>C&oacute;digo QR temporalmente oculto:</strong> la funcionalidad del c&oacute;digo QR se ocult&oacute; para desarrollarla mejor. Volver&aacute; en pr&oacute;xima actualizaci&oacute;n con mejoras.</li>
+    </ul>
+    <div style="font-weight:700;color:#1a5276;font-size:12px;margin:10px 0 4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 05-07-2026</div>
     <ul>
       <li><strong>App m&aacute;s neutra:</strong> la aplicaci&oacute;n ya no lleva el sello \"Hospital de Fresia\", para que colegas de cualquier centro puedan usarla c&oacute;modamente. Se mantienen el logo y datos de Fresia solo para las recetas que efectivamente vienen de ese centro.</li>
       <li><strong>Detecci&oacute;n autom&aacute;tica de centros nuevos:</strong> si el PDF viene de un centro no configurado (por ejemplo, CESFAM, Hospital u Consultorio de otra comuna), la app ahora lee el nombre desde el encabezado del PDF y lo muestra en el horario, con un logo gen&eacute;rico de salud.</li>
@@ -83,8 +87,6 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
     </ul>
     <div style="font-weight:700;color:#1a5276;font-size:12px;margin:10px 0 4px;padding-bottom:3px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 03-07-2026</div>
     <ul>
-      <li><strong>C&oacute;digo QR corregido:</strong> ahora el QR escaneado abre correctamente la receta reconstruida en el celular (bug corregido).</li>
-      <li><strong>C&oacute;digo QR m&aacute;s peque&ntilde;o:</strong> ajustado para que quepa en la misma hoja de la receta.</li>
       <li><strong>Reordenar en horarios desde cero:</strong> los medicamentos agregados manualmente ahora tienen el manillar &#10247; para arrastrarlos y reordenarlos.</li>
       <li><strong>Insulina en medicamentos manuales:</strong> nueva opci&oacute;n al agregar un medicamento a mano; activa la jeringa esquem&aacute;tica AM/PM autom&aacute;ticamente.</li>
       <li><strong>Vencimiento condicional:</strong> el apartado de vencimiento de receta solo aparece si el horario proviene de una receta APS (Eloisa o Rayen). En horarios creados desde cero no aparece.</li>
@@ -101,7 +103,6 @@ footer{margin-top:24px;font-size:11px;color:#aaa;text-align:center;line-height:1
       <li><strong>Correcciones de impresi&oacute;n:</strong> el a&ntilde;o del control ahora siempre se imprime junto al mes; se ocultan al imprimir el selector de riesgo y el texto de ayuda.</li>
       <li><strong>Insulina &mdash; horario de administraci&oacute;n:</strong> las jeringas ahora indican "media hora antes del desayuno" y "media hora antes de la cena".</li>
       <li><strong>Medicamentos en ayuno:</strong> levotiroxina y los inhibidores de la bomba de protones (omeprazol, lansoprazol, etc.) ahora indican que se toman en ayuno, 30 minutos antes de comer.</li>
-      <li><strong>C&oacute;digo QR:</strong> cada horario incluye un QR que el paciente puede escanear para abrir su horario en el celular, con formato adaptado a pantalla m&oacute;vil. El QR se genera al momento de imprimir, capturando todas las ediciones hechas al horario (dosis, SOS, medicamentos agregados). Incluye bot&oacute;n para ocultarlo si no se desea. Lleva solo medicamentos y horarios, sin datos personales sensibles.</li>
       <li><strong>Crear horario desde cero:</strong> nueva opci&oacute;n en la pantalla principal para crear un horario sin receta de Eloisa/Rayen. Indica el nombre del paciente, el centro, y opcionalmente el RUT y el m&eacute;dico tratante. Luego agrega los medicamentos manualmente.</li>
       <li><strong>Centro personalizado:</strong> al crear desde cero, puedes elegir la opci&oacute;n \"Otro centro\" y escribir el nombre de cualquier establecimiento. Se usa un logo gen&eacute;rico de salud.</li>
       <li><strong>Aviso de verificaci&oacute;n:</strong> recordatorio en pantalla (no se imprime) de revisar manualmente que los medicamentos coincidan con la receta original.</li>
@@ -288,6 +289,9 @@ function cargarDesdeFavorito(){
 }
 // ── Detectar receta codificada en el URL (desde QR) ──
 function detectarRecetaEnURL(){
+  // ── DESACTIVADO temporalmente (feature QR en desarrollo) ──
+  return false;
+  // eslint-disable-next-line no-unreachable
   try{
     var hash=location.hash||'';
     if(!hash) return false;
@@ -2011,6 +2015,21 @@ function revertirEliminacion(){
     + '@media print{.changelog-box,.firma-autor{display:none!important}}\n'
     + '@page{margin:10mm}\n'
     + '#qrSVG svg{max-width:130px;height:auto;display:block;margin:0 auto}\n'
+    + '/* Modo solo lectura */\n'
+    + 'body.readonly-mode [contenteditable]{background:transparent!important;border-bottom:none!important;outline:none!important}\n'
+    + 'body.readonly-mode select,body.readonly-mode input[type="text"]{background:transparent!important;border:none!important;-webkit-appearance:none;appearance:none;padding:0 4px!important;pointer-events:none;color:#000!important}\n'
+    + 'body.readonly-mode .qty-select{font-weight:bold}\n'
+    + 'body.readonly-mode .drag-handle,body.readonly-mode .no-print button.btn-x,body.readonly-mode .btn-add-enf{display:none!important}\n'
+    + 'body.readonly-mode .control-card button{display:none!important}\n'
+    + 'body.readonly-mode #proxControlMenu,body.readonly-mode #btnProxControl{display:none!important}\n'
+    + 'body.readonly-mode button[onclick*="agregarMedicamento"]{display:none!important}\n'
+    + 'body.readonly-mode .aviso-verif{display:none!important}\n'
+    + '.modo-lectura-bar{position:sticky;top:0;z-index:9998;background:#1a3a2a;color:#fff;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap;box-shadow:0 2px 6px rgba(0,0,0,0.15)}\n'
+    + '.modo-lectura-bar button{padding:6px 14px;font-size:13px;font-weight:bold;border-radius:5px;cursor:pointer;border:none}\n'
+    + '.btn-editar{background:#f0c000;color:#333}\n'
+    + '.btn-deshacer{background:#fff;color:#1a3a2a;border:1px solid #ccc!important}\n'
+    + '.btn-terminar{background:#2a6b3f;color:#fff}\n'
+    + '@media print{.modo-lectura-bar{display:none!important}}\n'
     + '.ph-editable:empty::before{content:attr(data-placeholder);color:#bbb;font-weight:normal;font-style:italic;pointer-events:none}\n'
     + '.ph-editable:focus::before{content:none}\n'
     + '@media print{.ph-editable:empty::before{content:none}}\n'
@@ -2081,13 +2100,14 @@ function revertirEliminacion(){
     + 'th,td{word-break:keep-all;overflow-wrap:break-word}\n'
     + '</style></head><body>\n'
     + '<div class="changelog-box no-print"><div class="cl-header" onclick="toggleCL(this)">&#128221; Novedades y actualizaciones <span style="font-weight:400;color:#888;font-size:10px">(mostrar)</span></div><div class="cl-body cl-hidden">'
-    + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 05-07-2026</div><ul>'
+    + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 27-07-2026</div><ul>'
+    + '<li><strong>C&oacute;digo QR temporalmente oculto</strong> mientras se desarrolla mejor.</li>'
+    + '</ul>'
+    + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 05-07-2026</div><ul>'
     + '<li><strong>App m&aacute;s neutra:</strong> para uso en cualquier centro, no solo Hospital de Fresia.</li>'
     + '<li><strong>Detecci&oacute;n autom&aacute;tica de centros nuevos:</strong> lee el nombre desde el PDF si no est&aacute; configurado.</li>'
     + '</ul>'
     + '<div style="font-weight:700;color:#1a5276;font-size:11px;margin:8px 0 3px;padding-bottom:2px;border-bottom:1px solid #e0e8ee">Actualizaci&oacute;n 03-07-2026</div><ul>'
-    + '<li><strong>QR corregido:</strong> ahora reconstruye correctamente la receta al escanear.</li>'
-    + '<li><strong>QR m&aacute;s peque&ntilde;o</strong> para que quepa en la misma hoja.</li>'
     + '<li><strong>Reordenar en horarios manuales</strong> con el manillar &#10247;.</li>'
     + '<li><strong>Insulina manual:</strong> activa la jeringa AM/PM al elegir el tipo.</li>'
     + '<li><strong>Vencimiento solo para recetas APS</strong> (no aparece en horarios desde cero).</li>'
@@ -2102,7 +2122,6 @@ function revertirEliminacion(){
     + '<li><strong>Cardiovascular con un solo profesional</strong> (elegible en la lista) y correcciones de impresi&oacute;n (el a&ntilde;o siempre se imprime).</li>'
     + '<li><strong>Insulina:</strong> las jeringas indican "media hora antes del desayuno / de la cena".</li>'
     + '<li><strong>Ayuno:</strong> levotiroxina e inhibidores de la bomba de protones se marcan para tomar en ayuno.</li>'
-    + '<li><strong>C&oacute;digo QR:</strong> se genera al imprimir (capturando tus ediciones); &aacute;brelo en el celular con formato m&oacute;vil. Bot&oacute;n para ocultarlo disponible.</li>'
     + '<li><strong>Crear horario desde cero:</strong> desde la pantalla principal, con nombre, RUT y m&eacute;dico tratante opcionales.</li>'
     + '<li><strong>Centro personalizado:</strong> opci&oacute;n "Otro centro" para escribir el nombre de cualquier establecimiento (usa logo gen&eacute;rico).</li>'
     + '<li><strong>Aviso de verificaci&oacute;n:</strong> recordatorio de revisar que los medicamentos coincidan con la receta original.</li>'
@@ -2143,7 +2162,7 @@ function revertirEliminacion(){
     + '<button onclick="addControlMorbi()" style="padding:6px 12px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #1a5276;color:#1a5276;border-radius:5px;cursor:pointer">&#129695; Artrosis / Hipotiroidismo / Otros</button>'
     + '</div></div>'
     + '<div id="controlesContainer"></div>'
-    + '<div id="qrWrap">'
+    + '<div id="qrWrap" style="display:none">'
     + '<button id="btnToggleQR" class="no-print" onclick="toggleQR()" style="display:block;margin:14px auto 4px;padding:5px 14px;font-size:12px;font-weight:bold;background:#fff;border:1px solid #999;color:#555;border-radius:5px;cursor:pointer">&#128065; Ocultar QR</button>'
     + '<div id="qrReceta" class="qr-receta" style="margin:6px auto 4px;max-width:600px;padding:8px 10px;border:1px solid #ccc;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;background:#fafafa">'
     + '<div id="qrSVG" style="text-align:center;min-width:80px"><div class="no-print" style="font-size:10px;color:#888;font-style:italic;padding:10px 6px;border:1px dashed #ccc;border-radius:6px">QR se generar&aacute;<br>al imprimir</div></div>'
